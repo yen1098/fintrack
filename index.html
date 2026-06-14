@@ -250,7 +250,7 @@ function calcToSpend(){
   let ts=DB.toSpend.base;
   // Only deduct manual expenses (not fund use, not CC charges, not transfers)
   DB.transactions.forEach(t=>{
-    if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null && !( t.name&&t.name.includes('[CC:') ))ts-=t.amount;
+    if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null && !(t.name&&t.name.includes('[CC:')) && t.note!=='Borrowing record' && t.note!=='Borrowing settlement')ts-=t.amount;
   });
   // Deduct all transfer group items (whether transferred or not — they're committed allocations)
   DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{ts-=t.amount;});});
@@ -1914,3 +1914,4 @@ ld();render();
 </script>
 </body>
 </html>
+
