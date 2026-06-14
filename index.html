@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FinTrack">
+<title>FinTrack</title>
+<style>
+:root{--blue:#003F8A;--blue2:#185FA5;--green:#27500A;--red:#791F1F;--purple:#5B21B6;--orange:#633806;--bg:#f0f2f5;--white:#fff;--border:rgba(0,0,0,0.08);--text:#222;--sub:#999;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:430px;margin:0 auto;background:var(--bg);position:relative}
+.ab{padding:12px 18px 9px;background:#1a1a2e;color:#fff;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.abt{font-size:17px;font-weight:600;flex:1;color:#fff}
+.abi{font-size:22px;color:rgba(255,255,255,0.85);cursor:pointer;padding:2px 4px;position:relative}
+.badge-red{position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ct{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px}
+.card{background:var(--white);border-radius:16px;border:.5px solid var(--border);padding:12px 14px}
+.slbl{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.bn{background:var(--white);border-top:.5px solid var(--border);display:flex;padding:6px 0 env(safe-area-inset-bottom,10px);flex-shrink:0;position:absolute;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;z-index:10}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;position:relative}
+.nic{font-size:22px;line-height:1;filter:grayscale(1);opacity:.5;display:flex;align-items:center;justify-content:center;width:24px;height:24px}
+.nil{font-size:9px;color:#bbb}
+.ni.active .nic{filter:none;opacity:1}
+.ni.active .nil{color:var(--blue2)}
+.tr{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:.5px solid rgba(0,0,0,.05)}
+.tr:last-child{border-bottom:none}
+.ticon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.tn{font-size:13px;font-weight:500;color:var(--text)}
+.td{font-size:11px;color:var(--sub);margin-top:1px}
+.ta{font-size:13px;font-weight:600}
+.neg{color:#E24B4A}.pos{color:#3B6D11}.xfer{color:#7C3AED}
+.badge{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;display:inline-block}
+.bi{background:#E6F1FB;color:#0C447C}.bok{background:#EAF3DE;color:#27500A}
+.bw{background:#FAEEDA;color:#633806}.bd{background:#FCEBEB;color:#791F1F}
+.bpur{background:#EDE9FE;color:#5B21B6}
+.sr{display:flex;gap:6px}
+.sb2{flex:1;background:var(--bg);border-radius:10px;padding:9px;text-align:center}
+.sbl2{font-size:10px;color:var(--sub);margin-bottom:2px}
+.sbv{font-size:14px;font-weight:600;color:var(--text)}
+.fbg{background:#e5e5e5;border-radius:99px;height:5px;margin-top:5px}
+.fb{height:5px;border-radius:99px}
+.smb{width:100%;padding:7px;background:var(--bg);color:var(--blue2);border:none;border-radius:9px;font-size:11px;cursor:pointer;margin-top:6px;font-weight:500}
+.hwr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:.5px solid rgba(255,255,255,.15)}
+.hwr:last-child{border-bottom:none}
+.frow{display:flex;justify-content:space-between;font-size:11px;color:#555;padding:4px 0;border-top:.5px solid rgba(0,0,0,.05)}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qab{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer}
+.qai{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.qal{font-size:10px;color:#555;text-align:center;font-weight:500}
+.tgcard{border:.5px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:10px;background:var(--white)}
+.tghdr{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.tgrow{display:flex;align-items:flex-start;gap:8px;padding:10px 14px;background:#fafafa;border-top:.5px solid rgba(0,0,0,.05)}
+.tbtn{padding:6px 11px;border:none;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600}
+.tbtn-t{background:#EDE9FE;color:#5B21B6}
+.tbtn-d{background:#EAF3DE;color:#27500A}
+.wcard{border-radius:16px;padding:15px 16px;color:#fff;cursor:pointer;margin-bottom:8px}
+.wcard-exp{border-radius:16px 16px 0 0;margin-bottom:0}
+.wdrop{background:#EBF4FF;border-radius:0 0 14px 14px;padding:12px;border:.5px solid rgba(0,0,0,.07);border-top:none;margin-bottom:8px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
+.modal{background:var(--white);border-radius:24px 24px 0 0;padding:20px 16px env(safe-area-inset-bottom,28px);width:100%;max-width:430px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mtitle{font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.mclose{cursor:pointer;color:#aaa;font-size:26px;line-height:1;padding:0 4px}
+.field{margin-bottom:11px}
+.field label{font-size:11px;color:#666;display:block;margin-bottom:4px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;font-size:14px;padding:9px 11px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8;color:var(--text);appearance:none;-webkit-appearance:none}
+.field textarea{height:58px;resize:none}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue2);background:#fff}
+.btnp{width:100%;padding:13px;background:var(--blue2);color:#fff;border:none;border-radius:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.btns{width:100%;padding:10px;background:var(--bg);color:#444;border:none;border-radius:13px;font-size:13px;cursor:pointer;margin-top:6px}
+.btnpur{width:100%;padding:13px;background:#7C3AED;color:#fff;border:none;border-radius:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.btnred{width:100%;padding:10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:13px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+.img-prev{width:80px;height:80px;border-radius:10px;object-fit:cover;display:block;margin:6px auto}
+[contenteditable].empty:before{content:attr(data-ph,'Start typing...');color:#ccc;pointer-events:none;position:absolute}
+[contenteditable].empty{position:relative}
+/* Toast popup */
+#toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);background:rgba(30,30,30,0.92);color:#fff;padding:18px 28px;border-radius:20px;font-size:15px;font-weight:600;text-align:center;z-index:999;opacity:0;pointer-events:none;transition:all .25s;backdrop-filter:blur(4px)}
+#toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+/* Confirm modal */
+.confirm-box{background:var(--white);border-radius:20px;padding:24px 20px;width:300px;text-align:center}
+.confirm-box h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.confirm-box p{font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.5}
+.confirm-btns{display:flex;gap:10px}
+.confirm-btns button{flex:1;padding:11px;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer}
+.cb-cancel{background:var(--bg);color:#444}
+.cb-ok{background:var(--blue2);color:#fff}
+.cb-red{background:#E24B4A;color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sh" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+  <div id="mh"></div>
+</div>
+<div id="toast">✓ Done!</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// BANK COLORS
+// ═══════════════════════════════════════════════
+const BC={
+  'BDO':['#003F8A','#fff'],'BPI':['#B22222','#fff'],'Metrobank':['#003366','#fff'],
+  'UnionBank':['#E8621A','#fff'],'Security Bank':['#CC0000','#fff'],'Landbank':['#006400','#fff'],
+  'PNB':['#003087','#fff'],'RCBC':['#1a1a1a','#FFB300'],'Chinabank':['#8B0000','#fff'],
+  'EastWest':['#004C97','#fff'],'GCash':['#007DFE','#fff'],'Maya':['#00C566','#fff'],
+  'ShopeePay':['#EE4D2D','#fff'],'Tonik':['#FF206E','#fff'],'GoTyme':['#00B4B4','#fff'],
+  'Seabank':['#0066B3','#fff'],'OwnBank':['#6C5CE7','#fff'],'Citi':['#003B7A','#fff'],
+  'HSBC':['#DB0011','#fff'],'AllBank':['#1A237E','#fff'],'PSBank':['#003580','#FFD700'],
+  'PBCom':['#7B1FA2','#fff'],'Cash':['#4a4a4a','#fff'],'Other':['#5F5E5A','#fff']
+};
+const BANKS=Object.keys(BC);
+
+// ═══════════════════════════════════════════════
+// DB STATE
+// ═══════════════════════════════════════════════
+let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:'Monthly Income'}};
+let CS='home', AM=null;
+let hwExp=false,hwDet=null,ewId=null,wMore={};
+let fhExp={},fhFull={},tgExp={},lf='all';
+let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null;
+let tgMonthFilter='all'; // for transfer group month/year filter
+let homeTxLimit=10; // home recent tx show more
+let defaultFromWalletId=null; // default 'from' wallet for transfer groups
+let pendingConfirm=null; // {gid,tid,type:'mT'|'mD'}
+
+// ═══════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════
+function sv(){try{localStorage.setItem('fintrack2',JSON.stringify(DB));localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');}catch(e){alert('Storage full');}}
+function ld(){try{const d=localStorage.getItem('fintrack2');if(d)DB=JSON.parse(d);defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
+  // migrate old key
+  if(!d){const old=localStorage.getItem('fintrack');if(old)DB=JSON.parse(old);}
+  // ensure new fields exist on old saves
+  if(!DB.creditCards)DB.creditCards=[];
+  if(!DB.toSpend)DB.toSpend={base:0,label:'Monthly Income'};
+}catch(e){}}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+const f$=n=>'₱'+Math.abs(Math.round(n)).toLocaleString();
+const td=()=>new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+const vv=id=>{const e=document.getElementById(id);return e?e.value:'';};
+const gW=id=>DB.wallets.find(x=>x.id===id);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function addTx(o){DB.transactions.unshift({id:uid(),rawDate:new Date().toISOString(),...o,date:td()});sv();}
+
+function showToast(msg='✓ Done!',emoji=''){
+  const el=document.getElementById('toast');
+  el.textContent=(emoji?emoji+' ':'')+msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+// Due in 3 days count for tasks badge
+function tasksDueSoon(){
+  const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
+  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future&&new Date(t.due)>=now).length;
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+
+// SVG icon map for dynamic rendering (More tab, txR, etc.)
+const SVGMAP={
+  list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  calendar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  exchange:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3M17 8v8m0 0l3-3m-3 3l-3-3"/></svg>',
+  qrcode:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>',
+  trophy:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M6 3H3a1 1 0 00-1 1v2a4 4 0 004 4h1M18 3h3a1 1 0 011 1v2a4 4 0 01-4 4h-1"/><path d="M6 3h12v8a6 6 0 01-12 0V3z"/></svg>',
+  notes:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 12h8M8 16h5"/></svg>',
+  food:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a5 5 0 015 5H7a5 5 0 015-5zM7 7h10v2a5 5 0 01-10 0V7z"/><path d="M12 14v8"/></svg>',
+  bolt:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+  car:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a1 1 0 01-1-1v-4l2-6h16l2 6v4a1 1 0 01-1 1h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
+  cart:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 01-8 0"/></svg>',
+  receipt:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l3-2 2 2 2-2 2 2 2-2 2 2 3-2V2"/><path d="M8 10h8M8 14h5"/></svg>',
+  film:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>',
+  stack:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+  star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  stack:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+  other:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
+};
+function goTo(s){CS=s;render();}
+function render(){
+  const screens={home:bHome,wallets:bWallets,funds:bFunds,transfers:bTransfers,more:bMore,tasks:bTasks,borrowing:bBorrow,resources:bRes,bonuses:bBonus,ledger:bLedger,notes:bNotes};
+  // Save scroll position before re-render
+  const ct=document.querySelector('.ct');
+  const scrollY=ct?ct.scrollTop:0;
+  document.getElementById('sh').innerHTML=(screens[CS]||bHome)();
+  // Restore scroll position after re-render
+  const ctNew=document.querySelector('.ct');
+  if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
+  const mhEl=document.getElementById('mh');
+  if(AM==='confirm'||AM==='deleteConfirm'){
+    mhEl.innerHTML=AM==='confirm'?bConfirmModal():bModal('deleteConfirm');
+  } else {
+    mhEl.innerHTML=AM?`<div class="overlay" id="ov" onclick="if(event.target.id==='ov')cM()">${bModal(AM)}</div>`:'';
+  }
+  const sub=['tasks','borrowing','resources','bonuses','ledger','notes'];
+  const dueSoon=tasksDueSoon();
+  document.querySelectorAll('.ni').forEach(n=>{
+    const t=n.getAttribute('dt');
+    n.classList.toggle('active',t===CS||(t==='more'&&sub.includes(CS)));
+  });
+}
+
+// ═══════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════
+function nav(){
+  const due=tasksDueSoon();
+  return `<div class="bn">
+    <div class="ni" dt="home" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12L12 5l7 7"/><path d="M5 12v7a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-7"/></svg><div class="nil">Home</div></div>
+    <div class="ni" dt="wallets" onclick="goTo('wallets')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 14a1 1 0 100-2 1 1 0 000 2z" fill="currentColor" stroke="none"/><path d="M2 10h20"/></svg><div class="nil">Wallets</div></div>
+    <div class="ni" dt="funds" onclick="goTo('funds')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><div class="nil">Funds</div></div>
+    <div class="ni" dt="transfers" onclick="goTo('transfers')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg><div class="nil">Transfers</div></div>
+    <div class="ni" dt="more" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg><div class="nil">More</div></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// TX ROW
+// ═══════════════════════════════════════════════
+function txR(t){
+  const C={Food:['#EAF3DE','food'],Utilities:['#FCEBEB','bolt'],Transport:['#E6F1FB','car'],Shopping:['#EAF3DE','cart'],Bills:['#FCEBEB','receipt'],Entertainment:['#EEEDFE','film'],Fund:['#FAEEDA','stack'],Bonus:['#FAEEDA','star'],Transfer:['#EDE9FE','exchange'],Other:['#f0f0f0','other']};
+  const c=C[t.cat]||C.Other;
+  const ac=t.cat==='Transfer'?'xfer':t.type==='expense'?'neg':'pos';
+  const as=t.type==='expense'?'−':'+';
+  return `<div class="tr">
+    <div class="ticon" style="background:${c[0]};color:#555">${SVGMAP[c[1]]||''}</div>
+    <div style="flex:1;min-width:0">
+      <div class="tn">${esc(t.name)}</div>
+      <div class="td">${esc(t.date)}${t.walletName?' · '+esc(t.walletName):''}</div>
+      ${t.note?`<div class="td" style="font-style:italic;color:#bbb">${esc(t.note)}</div>`:''}
+    </div>
+    <div class="ta ${ac}" style="white-space:nowrap;margin-left:6px">${as}${f$(t.amount)}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// HOME
+// ═══════════════════════════════════════════════
+function calcToSpend(){
+  let ts=DB.toSpend.base;
+  // Only deduct manual expenses (not fund use, not CC charges, not transfers)
+  DB.transactions.forEach(t=>{
+    if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null && !( t.name&&t.name.includes('[CC:') ))ts-=t.amount;
+  });
+  // Deduct all transfer group items (whether transferred or not — they're committed allocations)
+  DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{ts-=t.amount;});});
+  return ts;
+}
+
+function bHome(){
+  const tot=DB.wallets.reduce((s,w)=>s+w.currentBalance,0);
+  const actualTot=DB.wallets.reduce((s,w)=>s+w.actualBalance,0);
+  const txAll=DB.transactions;
+  const txVisible=txAll.slice(0,homeTxLimit);
+  const due=tasksDueSoon();
+  const toSpendVal=calcToSpend();
+  const tsColor=toSpendVal>=0?'#3B6D11':'#E24B4A';
+  // Credit card total owed
+  const ccTotal=DB.creditCards.reduce((s,c)=>s+c.used,0);
+
+  // Build wallet rows as plain string concatenation — no nested template literals
+  let walSec='';
+  if(DB.wallets.length){
+    let walRows='';
+    DB.wallets.forEach(w=>{
+      const cl=BC[w.bank]||BC.Other;
+      const lentOut=DB.borrowings.filter(b=>b.dir==='lent'&&b.walletId===w.id).reduce((s,b)=>s+(b.total-b.paid),0);
+      const isO=hwDet===w.id;
+      const wt=DB.transactions.filter(t=>t.walletId===w.id).slice(0,5);
+      let txMini='';
+      if(isO&&wt.length){
+        txMini='<div style="background:#f8f8f8;border-radius:8px;padding:6px 10px;margin:3px 0">';
+        wt.forEach(t=>{
+          txMini+='<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">'
+            +'<span style="color:#555">'+esc(t.name)+'</span>'
+            +'<span style="'+(t.type==='expense'?'color:#E24B4A':'color:#3B6D11')+'">'+(t.type==='expense'?'−':'+')+f$(t.amount)+'</span></div>';
+        });
+        txMini+='</div>';
+      }
+      const lentBadge=lentOut>0?'<span style="font-size:9px;background:#FFF3CD;color:#856404;padding:1px 6px;border-radius:99px">'+f$(lentOut)+' lent</span>':'';
+      const actualLine=lentOut>0?'<div style="font-size:10px;color:var(--sub)">Actual '+f$(w.actualBalance)+'</div>':'';
+      walRows+='<div>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:.5px solid rgba(0,0,0,.05);cursor:pointer" onclick="hwDet=hwDet==\''+w.id+'\' ?null:\''+w.id+'\';render()">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="width:9px;height:9px;border-radius:50%;background:'+cl[0]+'"></div>'
+        +'<span style="font-size:13px;color:var(--text);font-weight:500">'+esc(w.name)+'</span>'
+        +lentBadge
+        +'</div>'
+        +'<div style="text-align:right">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--text)">'+f$(w.currentBalance)+'</div>'
+        +actualLine
+        +'</div></div>'
+        +txMini
+        +'</div>';
+    });
+    walSec='<div style="border-top:.5px solid rgba(0,0,0,.07);margin-top:12px;padding-top:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0" onclick="hwExp=!hwExp;hwDet=null;render()">'
+      +'<span style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.8px">WALLETS</span>'
+      +'<span style="color:#ccc;font-size:13px">'+(hwExp?'▲':'▼')+'</span>'
+      +'</div>'
+      +(hwExp?'<div style="margin-top:6px">'+walRows+'</div>':'')
+      +'</div>';
+  }
+
+  return `<div class="screen" style="position:relative">
+    <div class="ab"><span class="abt">FinTrack</span></div>
+    <div class="ct" style="padding-bottom:130px">
+      <div class="card" style="background:#fff;border-radius:20px;padding:18px 18px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px;margin-bottom:3px">TOTAL BALANCE</div>
+            <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:var(--text)">${f$(tot)}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+              <span style="font-size:11px;color:var(--sub)">${DB.wallets.length} wallet${DB.wallets.length!==1?'s':''}</span>
+              ${actualTot!==tot?`<span style="font-size:11px;color:#ddd">·</span><span style="font-size:11px;color:var(--sub)">Actual: <span style="font-weight:600;color:#777">${f$(actualTot)}</span></span>`:''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px;margin-bottom:3px">TO SPEND</div>
+            <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;color:${tsColor}">${toSpendVal<0?'−':''}${f$(Math.abs(toSpendVal))}</div>
+            <button onclick="oM('toSpendSettings')" style="margin-top:4px;padding:3px 9px;background:${toSpendVal>=0?'#EAF3DE':'#FCEBEB'};color:${toSpendVal>=0?'#27500A':'#791F1F'};border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">set budget</button>
+          </div>
+        </div>
+        ${ccTotal>0?`<div style="border-top:.5px solid rgba(0,0,0,.07);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--sub)">Credit card owed</span><span style="font-size:13px;font-weight:700;color:#E24B4A">−${f$(ccTotal)}</span></div>`:''}
+        ${walSec}
+      </div>
+      <div class="card">
+        <div class="slbl">Recent Transactions</div>
+        ${txVisible.length?txVisible.map(txR).join(''):'<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No transactions yet</div>'}
+        ${txAll.length>homeTxLimit?`<button onclick="homeTxLimit+=10;render()" style="width:100%;padding:8px;margin-top:6px;background:var(--bg);color:var(--blue2);border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Show more (${txAll.length-homeTxLimit} remaining)</button>`:''}
+      </div>
+    </div>
+    <div style="position:absolute;bottom:56px;left:0;right:0;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:5">
+      <div class="qa">
+        <div class="qab" onclick="oM('expense')"><div class="qai" style="background:#FCEBEB"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><div class="qal">Expense</div></div>
+        <div class="qab" onclick="oM('income')"><div class="qai" style="background:#EAF3DE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="qal">Income</div></div>
+        <div class="qab" onclick="oM('qtransfer')"><div class="qai" style="background:#EDE9FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div><div class="qal">Transfer</div></div>
+        <div class="qab" onclick="goTo('tasks')" style="position:relative">
+          <div class="qai" style="background:#E6F1FB;position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>${due>0?'<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">'+due+'</span>':''}</div>
+          <div class="qal">Tasks</div>
+        </div>
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// WALLETS
+// ═══════════════════════════════════════════════
+function dullColor(hex){
+  // Blend hex color toward #aaaaaa to make it duller/lighter
+  try{
+    let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.round(r*0.6+180*0.4);g=Math.round(g*0.6+180*0.4);b=Math.round(b*0.6+180*0.4);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }catch(e){return hex;}
+}
+function bWallets(){
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Wallets</span><span class="abi" onclick="oM('wallet')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      ${DB.wallets.length?`<div style="font-size:11px;color:var(--sub);margin-bottom:8px;text-align:center">Swipe left on a wallet to delete</div>`:''}
+      ${DB.wallets.length?DB.wallets.map(w=>{
+        const cl=BC[w.bank]||BC.Other;const fg=cl[1]||'#fff';const exp=ewId===w.id;
+        const lentOut=DB.borrowings.filter(b=>b.dir==='lent'&&b.walletId===w.id).reduce((s,b)=>s+(b.total-b.paid),0);
+        const wt=DB.transactions.filter(t=>t.walletId===w.id);
+        const r10=wt.slice(0,10);
+        const t3=new Date();t3.setMonth(t3.getMonth()-3);
+        const h3=wt.filter(t=>new Date(t.rawDate||0)>=t3);
+        return `<div style="margin-bottom:10px;position:relative;">
+          <div style="position:relative;border-radius:18px;overflow:hidden">
+            <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:18px;z-index:0"></div>
+            <div class="swipe-item" id="ww-${w.id}" style="position:relative;z-index:1;transition:transform .15s"
+              ontouchstart="swipeStart(event,'ww-${w.id}')"
+              ontouchmove="swipeMove(event,'ww-${w.id}')"
+              ontouchend="swipeEnd(event,'ww-${w.id}','deleteWallet','${w.id}')">
+              <div class="wcard ${exp?'wcard-exp':''}" style="background:${dullColor(cl[0])};margin-bottom:0;border-radius:${exp?'16px 16px 0 0':'16px'}" onclick="ewId=ewId==='${w.id}'?null:'${w.id}';render()">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div>
+                    <div style="font-size:11px;opacity:.8;color:${fg};margin-bottom:3px">${esc(w.name)} · ${esc(w.type)}</div>
+                    <div style="font-size:24px;font-weight:700;color:${fg};letter-spacing:-1px">${f$(w.currentBalance)}</div>
+                    ${lentOut>0?`<div style="font-size:10px;opacity:.8;color:${fg};margin-top:4px">Actual: ${f$(w.actualBalance)} · ${f$(lentOut)} lent out</div>`:`<div style="font-size:11px;opacity:.65;color:${fg};margin-top:5px">${esc(w.acct||w.bank)}</div>`}
+                  </div>
+                  <span style="color:${fg};opacity:.7;font-size:16px;margin-top:2px">${exp?'▲':'▼'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          ${exp?`<div class="wdrop">
+            <div class="slbl">Your QR Code</div>
+            ${w.qrImg?`<img src="${w.qrImg}" class="img-prev" alt="QR">`:`<div style="font-size:12px;color:var(--sub);text-align:center;padding:6px 0">No QR uploaded yet</div>`}
+            <button class="btns" style="font-size:12px;padding:8px;margin-bottom:12px" onclick="aWalQR='${w.id}';oM('uploadqr')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V9m0 0l-4 4m4-4l4 4"/><path d="M5 19h14"/></svg> Upload / Change QR</button>
+            <div class="slbl">Recent Transactions (last 10)</div>
+            ${r10.length?r10.map(txR).join(''):`<div style="font-size:12px;color:var(--sub);padding:6px">No transactions yet</div>`}
+            ${wt.length>10&&!wMore[w.id]?`<button class="smb" onclick="wMore['${w.id}']=true;render()">Show last 3 months</button>`:''}
+            ${wMore[w.id]?`<div class="slbl" style="margin-top:10px">Last 3 months</div>${h3.slice(10).map(txR).join('')}`:''}
+          </div>`:''}
+        </div>`;
+      }).join(''):`<div class="card" style="text-align:center;font-size:13px;color:var(--sub);padding:20px">No wallets yet.<br>Tap ＋ to add one.</div>`}
+      <!-- Credit Cards Section -->
+      <div class="card" style="margin-top:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="slbl" style="margin-bottom:0">Credit Cards</div>
+          <button onclick="oM('creditCard')" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:8px;font-size:11px;font-weight:600;padding:5px 10px;cursor:pointer">+ Add</button>
+        </div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Not included in total balance — tracked separately${DB.creditCards.length?'  ·  Swipe left to delete':''}</div>
+        ${DB.creditCards.length?DB.creditCards.map((cc,i)=>{
+          const avail=cc.limit-cc.used;
+          const usedPct=cc.limit>0?Math.min(100,Math.round(cc.used/cc.limit*100)):0;
+          const barC=usedPct>80?'#E24B4A':usedPct>50?'#EF9F27':'#3B6D11';
+          const ccCl=BC[cc.bank]||BC.Other;
+          return `<div style="position:relative;margin-bottom:8px;border-radius:14px;overflow:hidden">
+            <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:14px;z-index:0"></div>
+            <div class="swipe-item" id="ccw-${cc.id}" style="position:relative;z-index:1;transition:transform .15s;background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:14px;padding:12px 13px"
+              ontouchstart="swipeStart(event,'ccw-${cc.id}')"
+              ontouchmove="swipeMove(event,'ccw-${cc.id}')"
+              ontouchend="swipeEnd(event,'ccw-${cc.id}','deleteCreditCard','${cc.id}')">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                <div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:9px;height:9px;border-radius:50%;background:${ccCl[0]}"></div>
+                    <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(cc.name)}</span>
+                  </div>
+                  ${cc.acct?`<div style="font-size:11px;color:var(--sub);margin-top:2px;margin-left:16px">${esc(cc.acct)}</div>`:''}
+                </div>
+              </div>
+              <div style="background:#e0e0e0;border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">
+                <div style="width:${usedPct}%;height:7px;border-radius:99px;background:${barC};transition:width .3s"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                <div>
+                  <span style="font-size:11px;color:var(--sub)">Used: </span><span style="font-size:12px;font-weight:700;color:#E24B4A">${f$(cc.used)}</span>
+                  <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${f$(Math.max(0,avail))}</span>
+                  <span style="font-size:11px;color:var(--sub);margin-left:8px">Limit: </span><span style="font-size:12px;color:#555">${f$(cc.limit)}</span>
+                </div>
+                <div style="display:flex;gap:5px">
+                  <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
+                  <button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Pay bill</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px">No credit cards added</div>`}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// FUNDS — CORRECTED BAR LOGIC
+// fd.total = money saved/added. fd.spent = money used.
+// Bar = remaining/total. Full = all saved intact. Shrinks as you spend.
+// ═══════════════════════════════════════════════
+function bFunds(){
+  DB.funds.forEach(fd=>{
+    if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;delete fd.budget;delete fd.used;}
+  });
+  const grandTotal=DB.funds.reduce((s,f)=>s+f.total,0);
+  const grandSpent=DB.funds.reduce((s,f)=>s+f.spent,0);
+  const grandRemaining=Math.max(0,grandTotal-grandSpent);
+  const grandPct=grandTotal>0?Math.max(0,Math.min(100,Math.round(grandRemaining/grandTotal*100))):0;
+  const barColor=grandPct>60?'#3B6D11':grandPct>25?'#EF9F27':'#E24B4A';
+  const t3=new Date();t3.setMonth(t3.getMonth()-3);
+  const ty=new Date();ty.setFullYear(ty.getFullYear()-1);
+  const hasXfers=DB.transferGroups.some(g=>g.transfers.length>0);
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Funds</span><span class="abi" onclick="oM('fund')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      <div class="card">
+        <div class="slbl">Overall fund balance</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-size:24px;font-weight:700;color:var(--text)">${f$(grandRemaining)}</span>
+          <span style="font-size:12px;color:var(--sub)">of ${f$(grandTotal)} saved</span>
+        </div>
+        <div style="background:#e0e0e0;border-radius:99px;height:12px;overflow:hidden">
+          <div style="width:${grandPct}%;height:12px;border-radius:99px;background:${barColor};transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px">
+          <span style="font-size:11px;color:var(--sub)">${f$(grandSpent)} used</span>
+          <span style="font-size:11px;font-weight:700;color:${barColor}">${grandPct}% remaining</span>
+        </div>
+        ${hasXfers?`<div style="font-size:10px;color:var(--sub);margin-top:8px;text-align:center">See transfer summary in the Transfers tab</div>`:''}
+        ${DB.funds.length?`<button onclick="oM('fundSummary')" style="width:100%;margin-top:10px;padding:9px;background:#E6F1FB;color:#0C447C;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Fund Summary by Wallet</button>`:''}
+      </div>
+      <div class="card">
+        <div class="slbl">Envelopes</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Swipe left to delete a fund</div>
+        ${DB.funds.length?DB.funds.map(fd=>{
+          const remaining=Math.max(0,fd.total-fd.spent);
+          const remainPct=fd.total>0?Math.max(0,Math.min(100,Math.round(remaining/fd.total*100))):0;
+          let barC='#3B6D11';
+          if(remainPct<20)barC='#E24B4A';
+          else if(remainPct<50)barC='#EF9F27';
+          let bc='bok',badgeTxt=f$(remaining)+' left';
+          if(remaining<=0){bc='bd';badgeTxt='Empty';}
+          else if(remainPct<50){bc='bw';badgeTxt=f$(remaining)+' left';}
+          const uses=fd.uses||[];
+          const r3=uses.filter(u=>new Date(u.rawDate||0)>=t3);
+          const ay=uses.filter(u=>new Date(u.rawDate||0)>=ty);
+          const hE=fhExp[fd.id];const fy=fhFull[fd.id];const sh=fy?ay:r3;
+          return `<div class="swipe-wrap" id="fw-${fd.id}" style="margin-bottom:12px;position:relative;border-radius:14px;overflow:hidden">
+            <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:14px;z-index:0"></div>
+            <div class="swipe-item" style="border:.5px solid rgba(0,0,0,.08);border-radius:14px;padding:11px 13px;background:#fff;position:relative;z-index:1;transition:transform .15s"
+              ontouchstart="swipeStart(event,'fw-${fd.id}')"
+              ontouchmove="swipeMove(event,'fw-${fd.id}')"
+              ontouchend="swipeEnd(event,'fw-${fd.id}','deleteFund','${fd.id}')">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+                <div>
+                  <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(fd.name)}</span>
+                  ${fd.linkedWalletId&&gW(fd.linkedWalletId)?`<div style="font-size:10px;color:var(--sub);margin-top:1px">Linked: ${esc(gW(fd.linkedWalletId).name)}</div>`:'<div style="font-size:10px;color:#E24B4A;margin-top:1px">No wallet linked</div>'}
+                </div>
+                <span style="font-size:12px;color:#555">${f$(remaining)} / ${f$(fd.total)}</span>
+              </div>
+              <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden">
+                <div style="width:${remainPct}%;height:8px;border-radius:99px;background:${barC};transition:width .3s"></div>
+              </div>
+              <div style="font-size:10px;color:var(--sub);margin-top:3px">${remainPct}% remaining · ${f$(fd.spent)} used of ${f$(fd.total)} saved</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                <span class="badge ${bc}">${badgeTxt}</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button style="padding:6px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('fundincome')">＋ Add</button>
+                  <button style="padding:6px 10px;background:#FAECE7;color:#712B13;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('funduse')">− Use</button>
+                  <button style="padding:6px 10px;background:#E6F1FB;color:#0C447C;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('linkfundwallet')">Link wallet</button>
+                </div>
+              </div>
+              ${uses.length?`<div style="margin-top:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="fhExp['${fd.id}']=!fhExp['${fd.id}'];render()">
+                  <span style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px">USAGE HISTORY</span>
+                  <span style="color:#ccc;font-size:13px">${hE?'▲':'▼'}</span>
+                </div>
+                ${hE?`<div style="margin-top:5px">
+                  ${sh.length?sh.map(u=>`<div class="frow"><span>${esc(u.desc)}</span><div><span class="neg">−${f$(u.amt)}</span><span style="color:#bbb;margin-left:5px;font-size:10px">${esc(u.date)}</span></div></div>`).join(''):`<div style="font-size:11px;color:var(--sub);padding:4px 0">No usage in this period</div>`}
+                  ${!fy&&ay.length>r3.length?`<button class="smb" onclick="fhFull['${fd.id}']=true;render()">Show full year (${ay.length} entries)</button>`:''}
+                  ${fy?`<button class="smb" onclick="fhFull['${fd.id}']=false;render()">Last 3 months only</button>`:''}
+                </div>`:''}
+              </div>`:''}
+            </div>
+          </div>`;
+        }).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No fund envelopes yet</div>`}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+// ═══════════════════════════════════════════════
+// TRANSFERS
+// LOGIC:
+//   Fund allocation item:  Transferred only → moves From→To wallet, adds to fund.total. No Done button.
+//   Regular transfer item: Transferred → moves From→To wallet. Done → deducts from To wallet + logs tx.
+// ═══════════════════════════════════════════════
+function bTransfers(){
+  const allMonths=[...new Set(DB.transferGroups.map(g=>{
+    const d=new Date(g.createdAt||Date.now());
+    return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0');
+  }))].sort().reverse();
+  const filteredGroups=tgMonthFilter==='all'?DB.transferGroups:DB.transferGroups.filter(g=>{
+    const d=new Date(g.createdAt||Date.now());
+    const key=d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0');
+    return key===tgMonthFilter;
+  });
+
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Transfer Groups</span><span class="abi" onclick="oM('newgroup')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      <div class="card" style="background:#EDE9FE;border:none;padding:10px 13px">
+        <div style="font-size:12px;color:#5B21B6;font-weight:600;margin-bottom:3px">ℹ️ How it works</div>
+        <div style="font-size:11px;color:#6D28D9;line-height:1.5">
+          <b>Fund allocation:</b> Transferred moves money to wallet + fund. No Done needed.<br>
+          <b>Regular transfer:</b> Transferred moves From→To. Done deducts from the To wallet (physically sent out).
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <select onchange="tgMonthFilter=this.value;render()" style="flex:1;font-size:12px;padding:7px 10px;border:.5px solid rgba(0,0,0,.15);border-radius:10px;background:#fff;color:#333">
+          <option value="all">All months</option>
+          ${allMonths.map(m=>{
+            const [yr,mo]=m.split('-');
+            const label=new Date(parseInt(yr),parseInt(mo)-1,1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+            return `<option value="${m}" ${tgMonthFilter===m?'selected':''}>${label}</option>`;
+          }).join('')}
+        </select>
+        ${DB.transferGroups.some(g=>g.transfers.length>0)?`<button onclick="oM('allXferSummary')" style="padding:7px 12px;background:#E6F1FB;color:#0C447C;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg> Summary</button>`:''}
+      </div>
+
+      ${filteredGroups.length?filteredGroups.map(g=>{
+        const exp=tgExp[g.id];
+        const tc=g.transfers.length;
+        const dc=g.transfers.filter(t=>{
+          if(t.fundId) return t.transferred; // fund items: done = transferred
+          return t.done;
+        }).length;
+        const totalAmt=g.transfers.reduce((s,t)=>s+t.amount,0);
+        const allDone=tc>0&&g.transfers.every(t=>t.fundId?t.transferred:t.done);
+        return `<div class="tgcard" style="overflow:visible">
+          <div class="tghdr" onclick="tgExp['${g.id}']=!tgExp['${g.id}'];render()">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(g.name)}</span>
+                ${g.isTemplate?'<span class="badge bpur">Template</span>':''}
+              </div>
+              <div style="font-size:11px;color:var(--sub);margin-top:2px">${tc} item${tc!==1?'s':''} · ${f$(totalAmt)} · ${dc}/${tc} done</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${allDone?'<span class="badge bok">✓ All done</span>':''}
+              <button onclick="event.stopPropagation();pendingConfirm={type:'group',id:'${g.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:16px;width:26px;height:26px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+            </div>
+          </div>
+          ${exp?`<div style="border-top:.5px solid rgba(0,0,0,.06)">
+            ${tc?g.transfers.map(t=>{
+              const fw=gW(t.fromId);const tw=gW(t.toId);
+              const fd=t.fundId?DB.funds.find(x=>x.id===t.fundId):null;
+              const isFund=!!t.fundId;
+              const rowId=`xr-${g.id}-${t.id}`;
+              return `<div class="swipe-wrap" id="${rowId}" style="position:relative;overflow:hidden">
+                <div style="position:absolute;inset:0;background:#FCEBEB;z-index:0"></div>
+                <div class="swipe-item tgrow" style="position:relative;z-index:1;transition:transform .15s;background:#fafafa"
+                  ontouchstart="swipeStart(event,'${rowId}')"
+                  ontouchmove="swipeMove(event,'${rowId}')"
+                  ontouchend="swipeEnd(event,'${rowId}','deleteXfer','${t.id}','${g.id}')">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(t.title||'Transfer')}</div>
+                    <div style="font-size:12px;font-weight:600;color:var(--blue2);margin-top:1px">${f$(t.amount)}</div>
+                    <div style="font-size:11px;color:var(--sub)">${fw?esc(fw.name):'?'} → ${tw?esc(tw.name):'?'}${fd?' (→ Fund: '+esc(fd.name)+')':''}</div>
+                    ${isFund?`<div style="font-size:10px;color:#7C3AED;margin-top:1px">Fund allocation — Done when Transferred</div>`:''}
+                    ${t.note?`<div style="font-size:10px;color:#bbb;font-style:italic;margin-top:1px">${esc(t.note)}</div>`:''}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end;padding-left:8px">
+                    ${isFund
+                      ? (!t.transferred
+                          ? `<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`
+                          : `<span class="badge bok">✓ Done</span>`)
+                      : (!t.transferred
+                          ? `<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`
+                          : !t.done
+                            ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="badge bi" style="white-space:nowrap">↔ Transferred</span><button class="tbtn tbtn-d" onclick="askConfirm('mD','${g.id}','${t.id}')">Done</button></div>`
+                            : `<span class="badge bok">✓ Done</span>`)}
+                  </div>
+                </div>
+              </div>`;
+            }).join(''):`<div style="padding:12px 14px;font-size:12px;color:var(--sub)">No transfers yet</div>`}
+            <div style="padding:10px 14px;background:#f8f8f8;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px;flex-wrap:wrap">
+              ${!allDone&&g.transfers.some(t=>!t.transferred)?`<button style="margin:0;font-size:12px;padding:8px 12px;background:#7C3AED;color:#fff;border:none;border-radius:9px;font-weight:600;cursor:pointer;flex:1" onclick="askTransferAll('${g.id}')">Transfer All</button>`:''}
+              <button class="btns" style="margin:0;font-size:12px;padding:8px;flex:1;min-width:100px" onclick="aTG='${g.id}';oM('addxfer')">＋ Add transfer</button>
+              <button class="btns" style="margin:0;font-size:12px;padding:8px" onclick="toggleTemplate('${g.id}')">${g.isTemplate?'Template ✓':'Set as template'}</button>
+            </div>
+          </div>`:''}
+        </div>`;
+      }).join(''):`<div class="card" style="text-align:center;font-size:13px;color:var(--sub);padding:20px">No groups for this period.<br>Tap ＋ to create one.</div>`}
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+function toggleTemplate(gid){
+  const g=DB.transferGroups.find(x=>x.id===gid);
+  if(g){g.isTemplate=!g.isTemplate;sv();render();}
+}
+
+function askTransferAll(gid){
+  const g=DB.transferGroups.find(x=>x.id===gid);
+  if(!g)return;
+  const pending=g.transfers.filter(t=>!t.transferred);
+  const total=pending.reduce((s,t)=>s+t.amount,0);
+  pendingConfirm={type:'transferAll',gid};
+  pendingConfirm.label=`Transfer all ${pending.length} pending item${pending.length!==1?'s':''} (${f$(total)})?`;
+  AM='confirm';
+  render();
+}
+
+function doTransferAll(gid){
+  const g=DB.transferGroups.find(x=>x.id===gid);
+  if(!g)return;
+  g.transfers.filter(t=>!t.transferred).forEach(t=>mT(gid,t.id));
+  pendingConfirm=null;AM=null;
+  showToast('All transferred');render();
+}
+
+// TRANSFERRED: moves From→To wallet immediately. If fund item, adds to fund.total too.
+function mT(gid,tid){
+  const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
+  const t=g.transfers.find(x=>x.id===tid);if(!t||t.transferred)return;
+  const fw=gW(t.fromId);const tw=gW(t.toId);
+  // Always move money from→to on Transferred
+  if(fw){fw.currentBalance-=t.amount;fw.actualBalance-=t.amount;}
+  if(tw){tw.currentBalance+=t.amount;tw.actualBalance+=t.amount;}
+  // If it's a fund allocation, add to fund.total (not spent)
+  if(t.fundId){
+    const fd=DB.funds.find(x=>x.id===t.fundId);
+    if(fd){
+      if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+      fd.total+=t.amount;
+      if(!fd.uses)fd.uses=[];
+    }
+  }
+  t.transferred=true;
+  // Log the transfer transaction
+  if(fw)addTx({type:'expense',name:`Transfer: ${t.title||'Group transfer'} → ${tw?tw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:t.note||''});
+  if(tw)addTx({type:'income',name:`Transfer: ${t.title||'Group transfer'} ← ${fw?fw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||''});
+  sv();showToast('Transferred');render();
+}
+
+// DONE (regular transfers only): deducts from the To wallet (money physically sent out from there)
+function mD(gid,tid){
+  const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
+  const t=g.transfers.find(x=>x.id===tid);if(!t||t.done)return;
+  const tw=gW(t.toId);
+  // Deduct from the To wallet since the money is now physically going out
+  if(tw){tw.currentBalance-=t.amount;tw.actualBalance-=t.amount;}
+  t.done=true;
+  if(tw)addTx({type:'expense',name:`Done: ${t.title||'Group transfer'} sent from ${tw.name}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||'Physically sent'});
+  sv();showToast('Marked as Done ✓');render();
+}
+
+// Confirmation modal
+function askConfirm(type,gid,tid){
+  pendingConfirm={type,gid,tid};
+  AM='confirm';
+  render();
+}
+
+function bConfirmModal(){
+  if(!pendingConfirm)return '';
+  const {type,gid,tid}=pendingConfirm;
+
+  // Transfer All
+  if(type==='transferAll'){
+    return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+      <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+        <div class="confirm-box">
+          <h3>Transfer All</h3>
+          <p>${pendingConfirm.label||'Transfer all pending items?'}<br><br>Wallet balances update immediately. Fund allocations will be completed. Regular transfers will still need Done tapped individually.</p>
+          <div class="confirm-btns">
+            <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+            <button class="cb-ok" onclick="doTransferAll('${gid}')">Yes, transfer all</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const g=DB.transferGroups.find(x=>x.id===gid);
+  const t=g&&g.transfers.find(x=>x.id===tid);
+  const fw=t?gW(t.fromId):null;const tw=t?gW(t.toId):null;
+  const isT=type==='mT';
+  const isFund=t&&!!t.fundId;
+  const fd=isFund?DB.funds.find(x=>x.id===t.fundId):null;
+  return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+    <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+      <div class="confirm-box">
+        <h3>${isT?'Confirm Transfer':'Mark as Done'}</h3>
+        <p>${isT
+          ? `Move <b>${f$(t?t.amount:0)}</b> from <b>${fw?fw.name:'?'}</b> to <b>${tw?tw.name:'?'}</b>${isFund?` and add to fund <b>${fd?fd.name:'?'}</b>`:''}?<br><br>Wallet balances update immediately.`
+          : `Mark <b>${esc(t?t.title:'this transfer')}</b> as physically sent?<br><br><b>${f$(t?t.amount:0)}</b> will be deducted from <b>${tw?tw.name:'?'}</b>.`}</p>
+        <div class="confirm-btns">
+          <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+          <button class="cb-ok" onclick="pendingConfirm=null;AM=null;${type}('${gid}','${tid}')">${isT?'Yes, Transfer':'Yes, Done'}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// LEDGER
+// ═══════════════════════════════════════════════
+function bLedger(){
+  const tx=lf==='all'?DB.transactions:DB.transactions.filter(t=>t.type===lf);
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Ledger</span><span class="abi" onclick="xCSV()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v10m0 0l-4-4m4 4l4-4"/><path d="M5 19h14"/></svg></span></div>
+    <div class="ct">
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${['all','expense','income'].map(x=>`<span style="padding:6px 14px;cursor:pointer;border-radius:99px;font-size:12px;font-weight:600;background:${lf===x?(x==='expense'?'#FCEBEB':x==='income'?'#EAF3DE':'#E6F1FB'):'#e8e8e8'};color:${lf===x?(x==='expense'?'#791F1F':x==='income'?'#27500A':'#0C447C'):'#666'}" onclick="lf='${x}';render()">${x[0].toUpperCase()+x.slice(1)}</span>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--sub);text-align:right">Tap the download icon for bank statement CSV</div>
+      <div class="card">${tx.length?tx.map(txR).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No transactions</div>`}</div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// MORE
+// ═══════════════════════════════════════════════
+function bMore(){
+  const due=tasksDueSoon();
+  const items=[
+    ['ledger',  'list',    '#E6F1FB','Ledger',            'All transactions + CSV','#0C447C',0],
+    ['tasks',   'calendar','#EAF3DE','Tasks & Reminders', 'Scheduled payments',   '#27500A',due],
+    ['borrowing','exchange','#EEEDFE','Borrowing',         'Lent & owed money',    '#26215C',0],
+    ['resources','qrcode', '#FAECE7','Resources Vault',   'Others\' QR & refs',   '#712B13',0],
+    ['bonuses', 'trophy',  '#FAEEDA','Bonuses',           'Extra income tracking','#633806',0],
+    ['notes',   'notes',   '#F0F4FF','Notes',             'Rich text & checklists','#3730A3',0],
+  ];
+  return `<div class="screen">
+    <div class="ab"><span class="abt">More</span></div>
+    <div class="ct">
+      <div class="card" style="padding:0;overflow:hidden">
+        ${items.map((r,i)=>`<div onclick="goTo('${r[0]}')" style="display:flex;align-items:center;gap:13px;padding:15px 16px;cursor:pointer;${i<items.length-1?'border-bottom:.5px solid rgba(0,0,0,.06)':''}">
+          <div style="width:38px;height:38px;border-radius:11px;background:${r[2]};display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;color:${r[5]}">${SVGMAP[r[1]]||''}${r[6]>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">${r[6]}</span>`:''}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:var(--text)">${r[3]}</div>
+            <div style="font-size:11px;color:var(--sub);margin-top:1px">${r[4]}</div>
+          </div>
+          <span style="color:#ccc;font-size:18px">›</span>
+        </div>`).join('')}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// TASKS — with done animation, reversible, freq, badge, redirect from quick action
+// ═══════════════════════════════════════════════
+function bTasks(){
+  const ya=new Date();ya.setFullYear(ya.getFullYear()-1);
+  const valid=DB.tasks.filter(t=>!t.rawDate||new Date(t.rawDate)>=ya);
+  const pend=valid.filter(t=>!t.done);
+  const done=valid.filter(t=>t.done);
+  const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+3);
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Tasks & Reminders</span><span class="abi" onclick="oM('task')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      <div class="card">
+        <div class="slbl">Pending</div>
+        ${pend.length?pend.map(t=>{
+          const isDueSoon=t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now;
+          return `<div class="tr" id="task-row-${t.id}">
+            <div style="width:26px;height:26px;border-radius:8px;border:2px solid ${isDueSoon?'#E24B4A':'#ccc'};flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s" onclick="dTask('${t.id}')"></div>
+            <div style="flex:1;min-width:0">
+              <div class="tn">${esc(t.name)}</div>
+              <div class="td" style="${isDueSoon?'color:#E24B4A;font-weight:600':''}">${esc(t.due||'No due date')} · ${f$(t.amt)}${t.walletId&&gW(t.walletId)?' · '+esc(gW(t.walletId).name):''}</div>
+              ${t.freq?`<div class="td"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> ${esc(t.freq)}</div>`:''}
+              ${t.note?`<div class="td" style="font-style:italic">${esc(t.note)}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+              ${isDueSoon?'<span class="badge bd">Due soon</span>':''}
+              <button onclick="event.stopPropagation();pendingConfirm={type:'task',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:13px;width:22px;height:22px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+            </div>
+          </div>`;
+        }).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px">All clear!</div>`}
+      </div>
+      <div class="card">
+        <div class="slbl">Completed (1 year history)</div>
+        ${done.length?done.map(t=>`<div class="tr">
+          <div style="width:26px;height:26px;border-radius:8px;background:var(--blue2);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:#fff;transition:all .2s" onclick="uTask('${t.id}')" title="Tap to undo">✓</div>
+          <div style="flex:1;min-width:0;opacity:.55">
+            <div class="tn" style="text-decoration:line-through;color:#aaa">${esc(t.name)}</div>
+            <div class="td">${esc(t.due||'')} · ${f$(t.amt)}</div>
+          </div>
+          <span style="font-size:10px;color:#bbb">Undo</span>
+        </div>`).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px">No completed tasks</div>`}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+function dTask(id){
+  const t=DB.tasks.find(x=>x.id===id);if(!t)return;
+  // Animate row
+  const row=document.getElementById('task-row-'+id);
+  if(row){row.style.transition='all .3s';row.style.opacity='0';row.style.transform='translateX(40px)';}
+  setTimeout(()=>{
+    t.done=true;
+    t.completedTxId=null;
+    if(t.walletId&&t.amt>0){
+      const w=gW(t.walletId);
+      if(w){w.currentBalance-=t.amt;w.actualBalance-=t.amt;}
+      const txId=uid();
+      t.completedTxId=txId;
+      DB.transactions.unshift({id:txId,rawDate:new Date().toISOString(),date:td(),type:'expense',name:'Task: '+t.name,amount:t.amt,cat:'Bills',walletId:t.walletId,walletName:w?w.name:'',note:t.note||''});
+    }
+    sv();
+    showToast('Task done');
+    render();
+  },300);
+}
+
+function uTask(id){
+  const t=DB.tasks.find(x=>x.id===id);if(!t)return;
+  t.done=false;
+  // Reverse financial movement
+  if(t.completedTxId){
+    // Remove the transaction
+    DB.transactions=DB.transactions.filter(tx=>tx.id!==t.completedTxId);
+    // Restore wallet balance
+    if(t.walletId&&t.amt>0){
+      const w=gW(t.walletId);
+      if(w){w.currentBalance+=t.amt;w.actualBalance+=t.amt;}
+    }
+    t.completedTxId=null;
+  }
+  sv();showToast('Task restored','↩️');render();
+}
+
+// ═══════════════════════════════════════════════
+// BORROWING — fixed balance logic
+// When I lent: currentBalance shown = actual minus lent out
+// When they pay: ONLY currentBalance goes up (recovering lent money), actualBalance unchanged
+// ═══════════════════════════════════════════════
+function bBorrow(){
+  const lent=DB.borrowings.filter(b=>b.dir==='lent');
+  const owe=DB.borrowings.filter(b=>b.dir==='owe');
+  const tL=lent.reduce((s,b)=>s+(b.total-b.paid),0);
+  const tO=owe.reduce((s,b)=>s+(b.total-b.paid),0);
+  const ini=n=>n.split(' ').map(x=>x[0]||'').join('').toUpperCase().slice(0,2);
+  const cl=[['#EAF3DE','#27500A'],['#E6F1FB','#0C447C'],['#EEEDFE','#26215C'],['#FAEEDA','#633806']];
+  function bRow(b,i){
+    const c=cl[i%4];const rem=b.total-b.paid;const pmts=b.payments||[];
+    return `<div style="margin-bottom:10px;border:.5px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 13px">
+        <div style="width:38px;height:38px;border-radius:50%;background:${c[0]};color:${c[1]};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${ini(b.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="tn">${esc(b.name)}</div>
+          <div class="td">${b.walletName?'From '+esc(b.walletName)+' · ':''}${b.due?'Due '+esc(b.due):'No due date'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="ta ${b.dir==='lent'?'pos':'neg'}">${b.dir==='lent'?'+':'−'}${f$(rem)}</div>
+          <div style="font-size:10px;color:var(--sub)">of ${f$(b.total)}</div>
+        </div>
+      </div>
+      <div style="padding:0 13px 11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${rem>0?`<button style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:9px;font-size:12px;cursor:pointer;font-weight:600" onclick="aBorrow='${b.id}';oM('payment')">Record payment</button>`:`<span style="font-size:12px;color:#3B6D11;font-weight:600">✓ Fully settled</span>`}
+        ${pmts.length?`<span style="font-size:10px;color:var(--sub)">${pmts.length} payment${pmts.length>1?'s':''} · ${f$(b.paid)} recovered</span>`:''}
+      </div>
+    </div>`;
+  }
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Borrowing</span><span class="abi" onclick="oM('borrow')">＋</span></div>
+    <div class="ct">
+      <div class="sr">
+        <div class="sb2"><div class="sbl2">I lent</div><div class="sbv pos">${f$(tL)}</div></div>
+        <div class="sb2"><div class="sbl2">I owe</div><div class="sbv neg">${f$(tO)}</div></div>
+        <div class="sb2"><div class="sbl2">Net</div><div class="sbv" style="color:var(--blue2)">${tL>=tO?'+':'−'}${f$(Math.abs(tL-tO))}</div></div>
+      </div>
+      <div class="card"><div class="slbl">They owe me</div>${lent.length?lent.map((b,i)=>bRow(b,i)).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px">None</div>`}</div>
+      <div class="card"><div class="slbl">I owe them</div>${owe.length?owe.map((b,i)=>bRow(b,i)).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px">None</div>`}</div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// RESOURCES
+// ═══════════════════════════════════════════════
+function bRes(){
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Resources Vault</span><span class="abi" onclick="oM('resource')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      <div style="font-size:11px;color:var(--sub);padding:2px 2px 4px">Other people's QR codes, account numbers &amp; payment references</div>
+      <div class="card">
+        ${DB.resources.length?DB.resources.map(r=>`<div class="tr">
+          <div class="ticon" style="background:#FAECE7">${r.img?`<img src="${r.img}" style="width:32px;height:32px;border-radius:7px;object-fit:cover" alt="QR">`:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>'}</div>
+          <div style="flex:1;min-width:0">
+            <div class="tn">${esc(r.label)}</div>
+            <div class="td">${esc(r.ref)} · ${esc(r.rtype)}</div>
+          </div>
+        </div>`).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No resources yet.</div>`}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// BONUSES
+// ═══════════════════════════════════════════════
+function bBonus(){
+  const tot=DB.bonuses.reduce((s,b)=>s+b.amt,0);
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Bonuses</span><span class="abi" onclick="oM('bonus')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      <div class="card"><div class="slbl">Total bonuses</div><div style="font-size:28px;font-weight:700;color:var(--blue2)">${f$(tot)}</div></div>
+      <div class="card">
+        <div class="slbl">All entries</div>
+        ${DB.bonuses.length?DB.bonuses.map(b=>{
+          const uses=b.uses||[];const ua=uses.reduce((s,u)=>s+u.amt,0);
+          return `<div style="margin-bottom:12px;border:.5px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden">
+            <div class="tr" style="padding:11px 13px;border:none">
+              <div class="ticon" style="background:#FAEEDA"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="tn">${esc(b.name)}</div><div class="td">${esc(b.date)}</div></div>
+              <div style="text-align:right;flex-shrink:0">
+                <div class="ta pos">+${f$(b.amt)}</div>
+                ${ua>0?`<div style="font-size:10px;color:#E24B4A">Used: ${f$(ua)}</div>`:''}
+              </div>
+            </div>
+            <div style="padding:0 13px 11px;display:flex;gap:8px;align-items:center">
+              <button style="padding:6px 12px;background:#FAECE7;color:#712B13;border:none;border-radius:9px;font-size:12px;cursor:pointer;font-weight:600" onclick="aBonus='${b.id}';oM('bonususe')">− Use funds</button>
+              ${uses.length?`<span style="font-size:11px;color:var(--sub);cursor:pointer" onclick="const bx=DB.bonuses.find(x=>x.id==='${b.id}');if(bx){bx._showUses=!bx._showUses;render()}">${uses.length} use${uses.length>1?'s':''} — ${b._showUses?'hide':'view'}</span>`:''}
+            </div>
+            ${b._showUses&&uses.length?`<div style="padding:0 13px 11px">${uses.map(u=>`<div class="frow"><span>${esc(u.desc)}</span><div><span class="neg">−${f$(u.amt)}</span><span style="color:#bbb;margin-left:5px;font-size:10px">${esc(u.date)}</span></div></div>`).join('')}</div>`:''}
+          </div>`;
+        }).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No bonuses yet</div>`}
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════
+function oM(n,x){
+  AM=n;
+  if(n==='fundincome'||n==='funduse')aFund=x||aFund;
+  if(n==='allXferSummary'){}// no extra id needed, reads all groups
+  if(n==='bonususe')aBonus=x||aBonus;
+  if(n==='payment')aBorrow=x||aBorrow;
+  if(n==='addxfer')aTG=x||aTG;
+  if(n==='uploadqr'&&x)aWalQR=x;
+  if(n==='ccCharge'||n==='ccPay')aCreditCard=x||aCreditCard;
+  render();
+}
+function cM(){AM=null;render();}
+
+function bModal(name){
+  const wO=DB.wallets.map(w=>`<option value="${w.id}">${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
+  const wOp=DB.wallets.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  const fO='<option value="">— none —</option>'+DB.funds.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  const bk=BANKS.map(b=>`<option value="${b}">${b}</option>`).join('');
+  const templates=DB.transferGroups.filter(g=>g.isTemplate);
+  const W=(t,b)=>`<div class="modal" onclick="event.stopPropagation()"><div class="mtitle">${t}<span class="mclose" onclick="cM()">×</span></div>${b}</div>`;
+
+  switch(name){
+    case 'expense': return W('Add Expense',`
+      <div class="field"><label>Item / description *</label><input id="mn" type="text" placeholder="e.g. SM Supermarket" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Category</label><select id="mc"><option>Food</option><option>Utilities</option><option>Transport</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Other</option></select></div>
+      <div class="field"><label>From wallet *</label><select id="mw">${wO||'<option value="">Add a wallet first</option>'}</select></div>
+      <div class="field"><label>Charge to fund (optional)</label><select id="mf">${fO}</select></div>
+      <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
+      <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'income': return W('Add Income',`
+      <div class="field"><label>Description *</label><input id="mn" type="text" placeholder="e.g. Salary" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Category</label><select id="mc"><option>Other</option><option>Bonus</option></select></div>
+      <div class="field"><label>To wallet *</label><select id="mw">${wO||'<option value="">Add a wallet first</option>'}</select></div>
+      <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
+      <button class="btnp" onclick="svInc()">Save income</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'qtransfer': return W('Quick Transfer',`
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">Instantly move funds between your wallets.</div>
+      <div class="field"><label>From wallet *</label><select id="mfr">${wO}</select></div>
+      <div class="field"><label>To wallet *</label><select id="mto">${wO}</select></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Notes</label><textarea id="mno" placeholder="e.g. For allowance"></textarea></div>
+      <button class="btnpur" onclick="svQT()">Transfer now</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'wallet': return W('Add Wallet',`
+      <div class="field"><label>Wallet name *</label><input id="mwn" type="text" placeholder="e.g. BDO Savings" autocomplete="off"></div>
+      <div class="field"><label>Bank / Provider</label><select id="mbk">${bk}</select></div>
+      <div class="field"><label>Type</label><select id="mwt"><option>Bank Account</option><option>E-Wallet</option><option>Cash</option><option>Credit Card</option></select></div>
+      <div class="field"><label>Account / phone number</label><input id="mac" type="text" placeholder="e.g. •••• 4821"></div>
+      <div class="field"><label>Starting balance (₱)</label><input id="mwb" type="number" inputmode="decimal" placeholder="0"></div>
+      <button class="btnp" onclick="svWal()">Add wallet</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'fund':{
+      const wLink=DB.wallets.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+      return W('Add Fund Envelope',`
+      <div class="field"><label>Fund name *</label><input id="mfn" type="text" placeholder="e.g. Groceries" autocomplete="off"></div>
+      <div class="field"><label>Starting amount (₱)</label><input id="mfb" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Link to wallet (auto-deducted on Use)</label><select id="mfwlink"><option value="">— none —</option>${wLink}</select></div>
+      <button class="btnp" onclick="svFund()">Create fund</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'allXferSummary':{
+      const wNet={};let grandXferTotal=0;let pendingCount=0;
+      DB.transferGroups.forEach(g=>{
+        g.transfers.forEach(t=>{
+          // Only include transfers not yet transferred (still pending)
+          if(t.transferred)return;
+          pendingCount++;
+          grandXferTotal+=t.amount;
+          const fn=gW(t.fromId)?gW(t.fromId).name:'Unknown';
+          const tn=gW(t.toId)?gW(t.toId).name:'Unknown';
+          if(!wNet[t.fromId])wNet[t.fromId]={name:fn,out:0,in:0};
+          if(!wNet[t.toId])wNet[t.toId]={name:tn,out:0,in:0};
+          wNet[t.fromId].out+=t.amount;
+          wNet[t.toId].in+=t.amount;
+        });
+      });
+      const entries=Object.values(wNet);
+      return W('Pending Transfers Summary',`
+        <div style="font-size:11px;color:#7C3AED;background:#EDE9FE;border-radius:9px;padding:8px 10px;margin-bottom:14px">Only showing transfers not yet marked as Transferred</div>
+        ${pendingCount===0
+          ?`<div style="text-align:center;padding:16px 0"><div style="color:#3B6D11;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></div><div style="font-size:14px;font-weight:600;color:#3B6D11">All transfers done!</div><div style="font-size:12px;color:var(--sub);margin-top:4px">Nothing pending</div></div>`
+          :`<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Still to transfer: <span style="color:var(--blue2)">${f$(grandXferTotal)}</span> (${pendingCount} item${pendingCount!==1?'s':''})</div>
+        <div class="slbl">Net per wallet</div>
+        ${entries.map(w=>{const net=w.in-w.out;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.06)"><span style="font-size:13px;font-weight:600;color:var(--text)">${esc(w.name)}</span><div style="text-align:right">${w.out>0?`<div style="font-size:12px;color:#E24B4A">−${f$(w.out)} out</div>`:''} ${w.in>0?`<div style="font-size:12px;color:#3B6D11">+${f$(w.in)} in</div>`:''}<div style="font-size:11px;font-weight:700;color:${net>=0?'#3B6D11':'#E24B4A'}">${net>=0?'+':''}${f$(Math.abs(net))} net</div></div></div>`;}).join('')}`}
+        <button class="btns" onclick="cM()">Close</button>`);}
+
+    case 'fundincome': return W('Add to Fund',`
+      <div class="field"><label>Amount to add (₱) *</label><input id="mfa" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Description</label><input id="mfd" type="text" placeholder="e.g. Monthly top-up"></div>
+      <button class="btnp" onclick="svFI()">Add to fund</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'funduse':{
+      const fd=DB.funds.find(x=>x.id==aFund);
+      if(fd&&fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+      const lw=fd&&fd.linkedWalletId?gW(fd.linkedWalletId):null;
+      return W('Use Fund',`
+      <div style="font-size:13px;color:var(--blue2);margin-bottom:4px;font-weight:600">${fd?esc(fd.name):''}</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${fd?f$(fd.total-fd.spent)+' remaining':''} ${lw?'· deducted from <b>'+esc(lw.name)+'</b>':'· <span style="color:#E24B4A">No wallet linked</span>'}</div>
+      <div class="field"><label>Amount (₱) *</label><input id="mfa" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Description</label><input id="mfd" type="text" placeholder="e.g. Weekly grocery run"></div>
+      <button class="btnp" onclick="svFU()">Confirm use</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'task': return W('Add Task',`
+      <div class="field"><label>Task name *</label><input id="mtn" type="text" placeholder="e.g. Meralco Bill" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱)</label><input id="mta" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Due date</label><input id="mtd" type="date"></div>
+      <div class="field">
+        <label>Alert frequency</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="mtfreqn" style="width:80px;font-size:14px;padding:9px 8px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8;appearance:none;-webkit-appearance:none;text-align:center">
+            <option value="">—</option>
+            ${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+          </select>
+          <select id="mtfrequ" style="flex:1;font-size:14px;padding:9px 11px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8">
+            <option value="">— no alert —</option>
+            <option value="day">day</option>
+            <option value="week">week</option>
+            <option value="month">month</option>
+            <option value="year">year</option>
+          </select>
+        </div>
+        <div style="font-size:10px;color:var(--sub);margin-top:4px" id="freq-preview">Select a number and unit above</div>
+      </div>
+      <div class="field"><label>Deduct from wallet when done (optional)</label><select id="mtw"><option value="">— none —</option>${wOp}</select></div>
+      <div class="field"><label>Notes</label><textarea id="mtn2" placeholder="Optional note..."></textarea></div>
+      <button class="btnp" onclick="svTask()">Add task</button><button class="btns" onclick="cM()">Cancel</button>
+      <script>
+        (function(){
+          function upd(){
+            var n=document.getElementById('mtfreqn').value;
+            var u=document.getElementById('mtfrequ').value;
+            var el=document.getElementById('freq-preview');
+            if(n&&u)el.textContent='Alert every '+n+' '+u+(n>1?'s':'');
+            else el.textContent='Select a number and unit above';
+          }
+          document.getElementById('mtfreqn').addEventListener('input',upd);
+          document.getElementById('mtfrequ').addEventListener('change',upd);
+        })();
+      <\/script>`);
+
+    case 'borrow': return W('Add Borrowing',`
+      <div class="field"><label>Person name *</label><input id="mbn" type="text" placeholder="e.g. Juan Reyes" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="mba" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Direction *</label><select id="mbd"><option value="lent">I lent them money</option><option value="owe">I owe them money</option></select></div>
+      <div class="field"><label>From wallet (if I lent)</label><select id="mbw">${wO||'<option value="">Add a wallet first</option>'}</select></div>
+      <div class="field"><label>Due date (optional)</label><input id="mbdue" type="date"></div>
+      <button class="btnp" onclick="svBor()">Save</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'payment':{
+      const b=DB.borrowings.find(x=>x.id===aBorrow);
+      return W('Record Payment',`
+      <div style="font-size:13px;color:var(--sub);margin-bottom:12px">${b?esc(b.name)+' — Remaining: '+f$(b.total-b.paid):''}</div>
+      <div class="field"><label>Amount paid (₱) *</label><input id="mpa" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Wallet to receive payment *</label><select id="mpw">${wO}</select></div>
+      <button class="btnp" onclick="svPay()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'resource': return W('Add Resource',`
+      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">For other people's QR codes, contacts, account refs — not your own</div>
+      <div class="field"><label>Label *</label><input id="mrl" type="text" placeholder="e.g. Juan's GCash QR" autocomplete="off"></div>
+      <div class="field"><label>Reference / account number</label><input id="mrr" type="text" placeholder="e.g. 09xx-xxx-xxxx"></div>
+      <div class="field"><label>Type</label><select id="mrt"><option>QR Code</option><option>Account Number</option><option>Contact</option><option>Reference</option></select></div>
+      <div class="field"><label>Upload QR image (optional)</label><input id="mri" type="file" accept="image/*" onchange="pF('mri','mrp')"></div>
+      <img id="mrp" style="display:none" class="img-prev" alt="preview">
+      <button class="btnp" onclick="svRes()">Save resource</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'bonus': return W('Add Bonus',`
+      <div class="field"><label>Description *</label><input id="mbon" type="text" placeholder="e.g. 13th Month Pay" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="mbona" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>To wallet *</label><select id="mbonw">${wO}</select></div>
+      <button class="btnp" onclick="svBonus()">Save bonus</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'bonususe':{
+      const b=DB.bonuses.find(x=>x.id==aBonus);
+      return W('Use Bonus Funds',`
+      <div style="font-size:13px;color:var(--blue2);margin-bottom:12px;font-weight:600">${b?esc(b.name)+' — '+f$(b.amt):''}</div>
+      <div class="field"><label>Amount (₱) *</label><input id="mbua" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Description</label><input id="mbud" type="text" placeholder="e.g. Used for groceries"></div>
+      <div class="field"><label>Deduct from wallet *</label><select id="mbuw">${wO}</select></div>
+      <button class="btnp" onclick="svBU()">Confirm use</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'uploadqr': return W('Upload Wallet QR',`
+      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Your personal receive QR code for this wallet</div>
+      <div class="field"><label>Choose QR image *</label><input id="mqrf" type="file" accept="image/*" onchange="pF('mqrf','mqrp')"></div>
+      <img id="mqrp" style="display:none" class="img-prev" alt="QR preview">
+      <button class="btnp" onclick="svQR()">Save QR</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'newgroup':{
+      const tmplOpts=templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+      return W('New Transfer Group',`
+      ${templates.length?`<div class="field"><label>Start from template (optional)</label><select id="mtmpl"><option value="">— blank group —</option>${tmplOpts}</select></div>`:''}
+      <div class="field"><label>Group name *</label><input id="mgn" type="text" placeholder="e.g. June Salary Day" autocomplete="off"></div>
+      <button class="btnp" onclick="svGroup()">Create group</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'addxfer':{
+      const wOstar=DB.wallets.map(w=>`<option value="${w.id}" ${w.id===defaultFromWalletId?'selected':''}>${w.id===defaultFromWalletId?'✓ ':''}${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
+      return W('Add Transfer to Group',`
+      <div class="field"><label>Transfer title *</label><input id="mxtitle" type="text" placeholder="e.g. GCash Allowance" autocomplete="off"></div>
+      <div class="field">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin:0">From wallet *</label>
+          <button type="button" onclick="setDefaultWallet()" style="font-size:10px;background:#FAEEDA;color:#633806;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-weight:600">Set as default</button>
+        </div>
+        <select id="mfr">${wOstar}</select>
+      </div>
+      <div class="field"><label>To wallet *</label><select id="mto">${wO}</select></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Allocate to fund (optional)</label><select id="mxfund">${fO}</select></div>
+      <div class="field"><label>Notes</label><textarea id="mno" placeholder="e.g. Monthly savings allocation"></textarea></div>
+      <button class="btnp" onclick="svXI()">Add to group</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'allXferSummary':{
+      // Aggregate ALL transfers across ALL groups
+      const wNet={};
+      let grandXferTotal=0;
+      DB.transferGroups.forEach(g=>{
+        g.transfers.forEach(t=>{
+          grandXferTotal+=t.amount;
+          const fn=gW(t.fromId)?gW(t.fromId).name:'Unknown';
+          const tn=gW(t.toId)?gW(t.toId).name:'Unknown';
+          if(!wNet[t.fromId])wNet[t.fromId]={name:fn,out:0,in:0};
+          if(!wNet[t.toId])wNet[t.toId]={name:tn,out:0,in:0};
+          wNet[t.fromId].out+=t.amount;
+          wNet[t.toId].in+=t.amount;
+        });
+      });
+      const entries=Object.values(wNet);
+      return W('All Transfers Summary',`
+        <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Across all ${DB.transferGroups.length} group${DB.transferGroups.length!==1?'s':''}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Grand total to move: <span style="color:var(--blue2)">${f$(grandXferTotal)}</span></div>
+        <div class="slbl">Net per wallet</div>
+        ${entries.length?entries.map(w=>{
+          const net=w.in-w.out;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.06)">
+            <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(w.name)}</span>
+            <div style="text-align:right">
+              ${w.out>0?`<div style="font-size:12px;color:#E24B4A">−${f$(w.out)} out</div>`:''}
+              ${w.in>0?`<div style="font-size:12px;color:#3B6D11">+${f$(w.in)} in</div>`:''}
+              <div style="font-size:11px;font-weight:700;color:${net>=0?'#3B6D11':'#E24B4A'}">${net>=0?'+':''}${net>=0?f$(net):f$(Math.abs(net))} net</div>
+            </div>
+          </div>`;
+        }).join(''):`<div style="font-size:12px;color:var(--sub);padding:10px 0;text-align:center">No transfers found</div>`}
+        <button class="btns" onclick="cM()">Close</button>`);}
+
+    case 'linkfundwallet':{
+      const fd=DB.funds.find(x=>x.id==aFund);
+      const wLink=DB.wallets.map(w=>`<option value="${w.id}" ${fd&&fd.linkedWalletId===w.id?'selected':''}>${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
+      return W('Link Wallet to Fund',`
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">The selected wallet will be auto-deducted when you tap Use on this fund.</div>
+      <div class="field"><label>Wallet</label><select id="mfwlink"><option value="">— none —</option>${wLink}</select></div>
+      <button class="btnp" onclick="saveLinkFundWallet()">Save link</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'fundSummary':{
+      // Group funds by linked wallet
+      const byWallet={};
+      DB.funds.forEach(fd=>{
+        const key=fd.linkedWalletId||'__none__';
+        if(!byWallet[key])byWallet[key]={walletName:fd.linkedWalletId&&gW(fd.linkedWalletId)?gW(fd.linkedWalletId).name:'No wallet linked',funds:[],totalSaved:0,totalSpent:0,totalRemaining:0};
+        byWallet[key].funds.push(fd);
+        byWallet[key].totalSaved+=fd.total||0;
+        byWallet[key].totalSpent+=fd.spent||0;
+        byWallet[key].totalRemaining+=(fd.total||0)-(fd.spent||0);
+      });
+      const entries=Object.values(byWallet);
+      return W('Fund Summary by Wallet',`
+        <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Remaining funds grouped by linked wallet</div>
+        ${entries.map(e=>`
+          <div style="margin-bottom:14px;border:.5px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden">
+            <div style="padding:10px 13px;background:#f8f8f8;border-bottom:.5px solid rgba(0,0,0,.06)">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(e.walletName)}</div>
+              <div style="display:flex;gap:12px;margin-top:4px">
+                <span style="font-size:11px;color:var(--sub)">Saved: <b style="color:var(--text)">${f$(e.totalSaved)}</b></span>
+                <span style="font-size:11px;color:var(--sub)">Used: <b style="color:#E24B4A">${f$(e.totalSpent)}</b></span>
+                <span style="font-size:11px;color:var(--sub)">Left: <b style="color:#3B6D11">${f$(e.totalRemaining)}</b></span>
+              </div>
+            </div>
+            ${e.funds.map(fd=>{
+              const rem=Math.max(0,(fd.total||0)-(fd.spent||0));
+              const pct=fd.total>0?Math.round(rem/fd.total*100):0;
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:.5px solid rgba(0,0,0,.04)">
+                <span style="font-size:12px;color:#444">${esc(fd.name)}</span>
+                <div style="text-align:right">
+                  <div style="font-size:12px;font-weight:600;color:${pct<20?'#E24B4A':pct<50?'#EF9F27':'#3B6D11'}">${f$(rem)} left</div>
+                  <div style="font-size:10px;color:var(--sub)">${pct}% remaining</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`).join('')}
+        <button class="btns" onclick="cM()">Close</button>`);}
+
+    case 'deleteConfirm':{
+      const pc=pendingConfirm||{};
+      const isF=pc.type==='fund';
+      const isG=pc.type==='group';
+      const isTk=pc.type==='task';
+      const isN=pc.type==='note';
+      const isW=pc.type==='wallet';
+      const isCC=pc.type==='creditCard';
+      const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
+      const grp=isG?DB.transferGroups.find(x=>x.id===pc.id):null;
+      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC)?DB.transferGroups.find(x=>x.id===pc.gid):null;
+      const xItem=grpX?grpX.transfers.find(x=>x.id===pc.id):null;
+      const tsk=isTk?DB.tasks.find(x=>x.id===pc.id):null;
+      const ntitle=(DB.notes&&pc.idx!==undefined&&DB.notes[pc.idx])?DB.notes[pc.idx].title||'Untitled note':'this note';
+      const label=isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
+      const kind=isW?'Wallet':isCC?'Credit Card':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
+      const fn=isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
+      return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+          <div class="confirm-box">
+            <h3>Delete ${kind}?</h3>
+            <p>Delete <b>${esc(label)}</b>?<br><br>This cannot be undone.</p>
+            <div class="confirm-btns">
+              <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+              <button class="cb-red" onclick="${fn}()">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>`;}
+
+    case 'toSpendSettings': return W('To Spend Settings',`
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.5">Set your starting balance (e.g. monthly income). Expenses and completed transfers will be deducted automatically.</div>
+      <div class="field"><label>Label (e.g. Monthly Salary)</label><input id="tslabel" type="text" value="${esc(DB.toSpend.label)}" placeholder="Monthly Income"></div>
+      <div class="field"><label>Starting balance (₱)</label><input id="tsbase" type="number" inputmode="decimal" placeholder="0" value="${DB.toSpend.base||''}"></div>
+      <button class="btnp" onclick="svToSpend()">Save</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'creditCard': return W('Add Credit Card',`
+      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Credit card balance is tracked separately and not added to your total balance.</div>
+      <div class="field"><label>Card name *</label><input id="ccn" type="text" placeholder="e.g. BDO Mastercard" autocomplete="off"></div>
+      <div class="field"><label>Bank / Provider</label><select id="ccbk">${bk}</select></div>
+      <div class="field"><label>Account / last 4 digits</label><input id="ccac" type="text" placeholder="e.g. •••• 1234"></div>
+      <div class="field"><label>Credit limit (₱)</label><input id="cclimit" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Current balance used (₱)</label><input id="ccused" type="number" inputmode="decimal" placeholder="0"></div>
+      <button class="btnp" onclick="svCreditCard()">Add card</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+    case 'ccCharge':{
+      const cc=DB.creditCards.find(x=>x.id===aCreditCard);
+      return W('Charge to Credit Card',`
+      <div style="font-size:13px;color:var(--sub);margin-bottom:12px">${cc?esc(cc.name)+' — Available: '+f$(Math.max(0,cc.limit-cc.used)):''}</div>
+      <div class="field"><label>Description *</label><input id="cccdesc" type="text" placeholder="e.g. Groceries" autocomplete="off"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="cccamt" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Category</label><select id="cccat"><option>Food</option><option>Utilities</option><option>Transport</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Other</option></select></div>
+      <button class="btnp" onclick="svCCCharge()">Record charge</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'ccPay':{
+      const cc=DB.creditCards.find(x=>x.id===aCreditCard);
+      return W('Pay Credit Card Bill',`
+      <div style="font-size:13px;color:var(--sub);margin-bottom:12px">${cc?esc(cc.name)+' — Outstanding: '+f$(cc.used):''}</div>
+      <div class="field"><label>Amount paid (₱) *</label><input id="ccpamt" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Pay from wallet *</label><select id="ccpwallet">${wO}</select></div>
+      <button class="btnp" onclick="svCCPay()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    default: return '';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// FILE PREVIEW
+// ═══════════════════════════════════════════════
+function pF(inp,prev){
+  const f=document.getElementById(inp).files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};
+  r.readAsDataURL(f);
+}
+
+// ═══════════════════════════════════════════════
+// SAVE FUNCTIONS
+// ═══════════════════════════════════════════════
+function svExp(){
+  const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
+  if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
+  const wd=gW(w);if(!wd)return;
+  wd.currentBalance-=a;wd.actualBalance-=a;
+  if(fi){const fd=DB.funds.find(x=>x.id===fi);if(fd){
+    if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+    fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:n,date:td(),rawDate:new Date().toISOString()});
+  }}
+  addTx({type:'expense',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
+  cM();goTo('home');
+}
+
+function svInc(){
+  const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc')||'Other',w=vv('mw'),no=vv('mno');
+  if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
+  const wd=gW(w);if(!wd)return;
+  wd.currentBalance+=a;wd.actualBalance+=a;
+  addTx({type:'income',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
+  cM();goTo('home');
+}
+
+function svQT(){
+  const fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno');
+  if(!fr||!to||!a)return alert('Please fill all fields');
+  if(fr===to)return alert('From and To wallet must be different');
+  const fw=gW(fr);const tw=gW(to);if(!fw||!tw)return;
+  fw.currentBalance-=a;fw.actualBalance-=a;
+  tw.currentBalance+=a;tw.actualBalance+=a;
+  addTx({type:'expense',name:`Transfer → ${tw.name}`,amount:a,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:no});
+  addTx({type:'income',name:`Transfer ← ${fw.name}`,amount:a,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:no});
+  cM();goTo('home');
+}
+
+function svWal(){
+  const n=vv('mwn'),bk=vv('mbk'),t=vv('mwt'),ac=vv('mac'),b=parseFloat(vv('mwb'))||0;
+  if(!n)return alert('Please enter a wallet name');
+  DB.wallets.push({id:uid(),name:n,bank:bk,type:t,acct:ac,currentBalance:b,actualBalance:b,qrImg:null});
+  sv();cM();goTo('wallets');
+}
+
+function svFund(){
+  const n=vv('mfn'),b=parseFloat(vv('mfb'))||0,wid=vv('mfwlink');
+  if(!n)return alert('Please enter a fund name');
+  DB.funds.push({id:uid(),name:n,total:b,spent:0,uses:[],linkedWalletId:wid||null});
+  sv();cM();goTo('funds');
+}
+
+function svFI(){
+  const a=parseFloat(vv('mfa')),d=vv('mfd');
+  if(!a)return alert('Please enter an amount');
+  const fd=DB.funds.find(x=>x.id==aFund);
+  if(fd){
+    if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+    fd.total+=a; // Adding to fund increases total, bar stays full or shrinks proportionally
+  }
+  addTx({type:'income',name:d||'Fund top-up',amount:a,cat:'Fund',walletId:'',walletName:'',note:''});
+  cM();goTo('funds');
+}
+
+function svFU(){
+  const a=parseFloat(vv('mfa')),d=vv('mfd');
+  if(!a)return alert('Please enter an amount');
+  const fd=DB.funds.find(x=>x.id==aFund);
+  if(!fd)return;
+  if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+  const w=fd.linkedWalletId;const wd=w?gW(w):null;
+  fd.spent+=a;
+  if(!fd.uses)fd.uses=[];
+  fd.uses.unshift({amt:a,desc:d||fd.name+' use',date:td(),rawDate:new Date().toISOString()});
+  if(wd){wd.currentBalance-=a;wd.actualBalance-=a;}
+  addTx({type:'expense',name:d||(fd?fd.name+' use':'Fund use'),amount:a,cat:'Fund',walletId:w||'',walletName:wd?wd.name:'',note:''});
+  cM();goTo('funds');
+}
+
+function svTask(){
+  const n=vv('mtn'),a=parseFloat(vv('mta'))||0,d=vv('mtd'),freqN=vv('mtfreqn'),freqU=vv('mtfrequ'),w=vv('mtw'),no=vv('mtn2');
+  if(!n)return alert('Please enter a task name');
+  const freq=(freqN&&freqU)?('every '+freqN+' '+freqU+(parseInt(freqN)>1?'s':'')):'';
+  DB.tasks.push({id:uid(),name:n,amt:a,due:d,freq,walletId:w,note:no,done:false,rawDate:d?new Date(d).toISOString():new Date().toISOString()});
+  sv();cM();goTo('tasks');
+}
+
+function svBor(){
+  const n=vv('mbn'),a=parseFloat(vv('mba')),dir=vv('mbd'),w=vv('mbw'),due=vv('mbdue');
+  if(!n||!a)return alert('Please fill name and amount');
+  const wd=dir==='lent'?gW(w):null;
+  // When I lend: currentBalance decreases (money left my wallet), actualBalance stays (it's still mine, just with someone else)
+  if(dir==='lent'&&wd){wd.currentBalance-=a;}
+  DB.borrowings.push({id:uid(),name:n,total:a,paid:0,dir,walletId:w,walletName:wd?wd.name:'',due,payments:[]});
+  if(dir==='lent'&&wd)addTx({type:'expense',name:'Lent to '+n,amount:a,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing record'});
+  cM();goTo('borrowing');
+}
+
+function svPay(){
+  const a=parseFloat(vv('mpa')),w=vv('mpw');
+  if(!a||!w)return alert('Please fill all fields');
+  const b=DB.borrowings.find(x=>x.id===aBorrow);const wd=gW(w);if(!b||!wd)return;
+  const actual=Math.min(a,b.total-b.paid);
+  b.paid+=actual;
+  // FIXED borrowing logic:
+  // When lent: payment received → currentBalance goes up (money comes back), actualBalance unchanged (it was always ours)
+  // When owe: payment sent → currentBalance goes down, actualBalance goes down
+  if(b.dir==='lent'){
+    wd.currentBalance+=actual;
+    // actualBalance does NOT change — that money was always ours, just out on loan
+  } else {
+    wd.currentBalance-=actual;
+    wd.actualBalance-=actual;
+  }
+  b.payments.push({amt:actual,date:td(),walletName:wd.name});
+  addTx({type:b.dir==='lent'?'income':'expense',name:'Payment '+(b.dir==='lent'?'from':'to')+' '+b.name,amount:actual,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing settlement'});
+  cM();goTo('borrowing');
+}
+
+function svRes(){
+  const l=vv('mrl'),r=vv('mrr'),t=vv('mrt');
+  if(!l)return alert('Please enter a label');
+  const inp=document.getElementById('mri');const file=inp&&inp.files[0];
+  if(file){const rd=new FileReader();rd.onload=e=>{DB.resources.push({id:uid(),label:l,ref:r,rtype:t,img:e.target.result});sv();cM();goTo('resources');};rd.readAsDataURL(file);}
+  else{DB.resources.push({id:uid(),label:l,ref:r,rtype:t,img:null});sv();cM();goTo('resources');}
+}
+
+function svBonus(){
+  const n=vv('mbon'),a=parseFloat(vv('mbona')),w=vv('mbonw');
+  if(!n||!a||!w)return alert('Please fill all fields');
+  const wd=gW(w);if(!wd)return;
+  wd.currentBalance+=a;wd.actualBalance+=a;
+  DB.bonuses.push({id:uid(),name:n,amt:a,date:td(),uses:[],_showUses:false});
+  addTx({type:'income',name:'Bonus: '+n,amount:a,cat:'Bonus',walletId:w,walletName:wd.name,note:''});
+  sv();cM();goTo('bonuses');
+}
+
+function svBU(){
+  const a=parseFloat(vv('mbua')),d=vv('mbud'),w=vv('mbuw');
+  if(!a||!w)return alert('Please fill all fields');
+  const b=DB.bonuses.find(x=>x.id==aBonus);const wd=gW(w);if(!b||!wd)return;
+  b.uses.push({amt:a,desc:d||'Bonus use',date:td()});
+  wd.currentBalance-=a;wd.actualBalance-=a;
+  addTx({type:'expense',name:d||'Bonus use',amount:a,cat:'Bonus',walletId:w,walletName:wd.name,note:'From bonus: '+b.name});
+  sv();cM();goTo('bonuses');
+}
+
+function svQR(){
+  const inp=document.getElementById('mqrf');const file=inp&&inp.files[0];
+  const w=DB.wallets.find(x=>x.id===aWalQR);
+  if(!file||!w)return alert('Please select an image first');
+  const r=new FileReader();r.onload=e=>{w.qrImg=e.target.result;sv();cM();goTo('wallets');};r.readAsDataURL(file);
+}
+
+function svGroup(){
+  const n=vv('mgn');if(!n)return alert('Please enter a group name');
+  const tmplId=vv('mtmpl');
+  let transfers=[];
+  if(tmplId){
+    const tmpl=DB.transferGroups.find(x=>x.id===tmplId);
+    if(tmpl){
+      // Clone transfers from template, reset transferred/done status
+      transfers=tmpl.transfers.map(t=>({...t,id:uid(),transferred:false,done:false}));
+    }
+  }
+  DB.transferGroups.push({id:uid(),name:n,transfers,isTemplate:false,createdAt:new Date().toISOString()});
+  sv();cM();goTo('transfers');
+}
+
+function svXI(){
+  const title=vv('mxtitle'),fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno'),fundId=vv('mxfund');
+  if(!title||!fr||!to||!a)return alert('Please fill title, wallets, and amount');
+  if(fr===to)return alert('From and To must be different wallets');
+  const g=DB.transferGroups.find(x=>x.id===aTG);if(!g)return;
+  g.transfers.push({id:uid(),title,fromId:fr,toId:to,amount:a,note:no,fundId:fundId||null,transferred:false,done:false});
+  sv();cM();goTo('transfers');
+}
+
+// ═══════════════════════════════════════════════
+// SWIPE TO DELETE ENGINE
+// ═══════════════════════════════════════════════
+let swipeState={};
+
+function swipeStart(e,wrapperId){
+  const t=e.touches[0];
+  swipeState[wrapperId]={startX:t.clientX,startY:t.clientY,moved:0,active:true};
+}
+
+function swipeMove(e,wrapperId){
+  const s=swipeState[wrapperId];if(!s||!s.active)return;
+  const t=e.touches[0];
+  const dx=t.clientX-s.startX;
+  const dy=Math.abs(t.clientY-s.startY);
+  if(dy>20&&Math.abs(dx)<20){s.active=false;return;}
+  if(dx>=0)return;
+  s.moved=dx;
+  // Try direct id first (wallets), then child .swipe-item (funds)
+  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
+  if(el){el.style.transform=`translateX(${Math.max(dx,-100)}px)`;el.style.transition='none';}
+  e.preventDefault();
+}
+
+function swipeEnd(e,wrapperId,deleteFn,deleteId,gid){
+  const s=swipeState[wrapperId];if(!s)return;
+  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
+  if(!s.active||!el){if(el){el.style.transform='';el.style.transition='';}return;}
+  if(s.moved<-70){
+    el.style.transform='translateX(-100%)';
+    el.style.transition='transform .2s';
+    setTimeout(()=>{
+      if(deleteFn==='deleteFund'){
+        pendingConfirm={type:'fund',id:deleteId};
+      } else if(deleteFn==='deleteWallet'){
+        const w=DB.wallets.find(x=>x.id===deleteId);
+        pendingConfirm={type:'wallet',id:deleteId,name:w?w.name:'this wallet'};
+      } else if(deleteFn==='deleteCreditCard'){
+        const cc=DB.creditCards.find(x=>x.id===deleteId);
+        pendingConfirm={type:'creditCard',id:deleteId,name:cc?cc.name:'this card'};
+      } else {
+        pendingConfirm={type:'xfer',id:deleteId,gid:gid};
+      }
+      AM='deleteConfirm';
+      render();
+    },200);
+  } else {
+    el.style.transform='';
+    el.style.transition='transform .2s';
+  }
+  swipeState[wrapperId]={};
+}
+
+function saveLinkFundWallet(){
+  const wid=vv('mfwlink');
+  const fd=DB.funds.find(x=>x.id==aFund);
+  if(!fd)return;
+  fd.linkedWalletId=wid||null;
+  sv();cM();showToast('Wallet linked');goTo('funds');
+}
+
+function confirmDeleteFund(){
+  const pc=pendingConfirm;
+  DB.funds=DB.funds.filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Fund deleted');goTo('funds');
+}
+
+function confirmDeleteXfer(){
+  const pc=pendingConfirm;
+  const g=DB.transferGroups.find(x=>x.id===pc.gid);
+  if(g){g.transfers=g.transfers.filter(x=>x.id!==pc.id);}
+  pendingConfirm=null;AM=null;sv();showToast('Transfer deleted');render();
+}
+
+function confirmDeleteWallet(){
+  const pc=pendingConfirm;
+  DB.wallets=DB.wallets.filter(x=>x.id!==pc.id);
+  // Also remove transactions for that wallet
+  DB.transactions=DB.transactions.filter(x=>x.walletId!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Wallet deleted');goTo('wallets');
+}
+
+function confirmDeleteCreditCard(){
+  const pc=pendingConfirm;
+  DB.creditCards=DB.creditCards.filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Credit card removed');goTo('wallets');
+}
+
+function svToSpend(){
+  const label=vv('tslabel')||'Monthly Income';
+  const base=parseFloat(vv('tsbase'))||0;
+  DB.toSpend={base,label};
+  sv();cM();showToast('To Spend updated');goTo('home');
+}
+
+function svCreditCard(){
+  const n=vv('ccn');if(!n)return alert('Please enter a card name');
+  const limit=parseFloat(vv('cclimit'))||0;
+  const used=parseFloat(vv('ccused'))||0;
+  DB.creditCards.push({id:uid(),name:n,bank:vv('ccbk')||'Other',acct:vv('ccac'),limit,used,charges:[],createdAt:new Date().toISOString()});
+  sv();cM();showToast('Credit card added');goTo('wallets');
+}
+
+function svCCCharge(){
+  const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
+  const desc=vv('cccdesc');const amt=parseFloat(vv('cccamt'));const cat=vv('cccat');
+  if(!desc||!amt)return alert('Please fill in description and amount');
+  if(amt>cc.limit-cc.used)return alert('Exceeds available credit');
+  cc.used+=amt;
+  if(!cc.charges)cc.charges=[];
+  cc.charges.unshift({id:uid(),desc,amt,cat,date:td(),rawDate:new Date().toISOString()});
+  // Also log as expense in transactions (no wallet deduction — credit card)
+  addTx({type:'expense',name:desc+'[CC:'+cc.name+']',amount:amt,cat:cat,walletId:null,walletName:cc.name,note:'Charged to credit card'});
+  sv();cM();showToast('Charge recorded');goTo('wallets');
+}
+
+function svCCPay(){
+  const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
+  const amt=parseFloat(vv('ccpamt'));const wid=vv('ccpwallet');
+  if(!amt||!wid)return alert('Please fill in amount and wallet');
+  const wd=gW(wid);if(!wd)return;
+  if(amt>wd.currentBalance)return alert('Insufficient wallet balance');
+  wd.currentBalance-=amt;wd.actualBalance-=amt;
+  cc.used=Math.max(0,cc.used-amt);
+  addTx({type:'expense',name:'CC Payment: '+cc.name,amount:amt,cat:'Bills',walletId:wid,walletName:wd.name,note:'Credit card bill payment'});
+  sv();cM();showToast('Payment recorded');goTo('wallets');
+}
+
+// ═══════════════════════════════════════════════
+// NOTES SCREEN
+// ═══════════════════════════════════════════════
+function bNotes(){
+  if(!DB.notes)DB.notes=[];
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Notes</span><span class="abi" onclick="addNote()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      ${DB.notes.length?DB.notes.map((n,i)=>`<div class="card" style="border-radius:16px;padding:14px 16px">
+        <!-- Note header -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input value="${esc(n.title)}" onchange="DB.notes[${i}].title=this.value;sv()"
+            style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--text);flex:1;outline:none;padding:0"
+            placeholder="Note title">
+          <button onclick="noteToggleCollapse(${i})"
+            style="background:#f0f0f0;color:#666;border:none;border-radius:7px;font-size:11px;padding:4px 8px;cursor:pointer;font-weight:600;white-space:nowrap">
+            ${n.collapsed?'▼ Show':'▲ Hide'}
+          </button>
+          <button onclick="pendingConfirm={type:'note',idx:${i}};AM='deleteConfirm';render()"
+            style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:16px;width:28px;height:28px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+        </div>
+        ${n.collapsed?'':`
+        <!-- Note body -->
+          <div id="note-body-${i}" contenteditable="true"
+          oninput="DB.notes[${i}].body=this.innerHTML;sv();this.classList.toggle('empty',this.textContent.trim()==='')"
+          onkeydown="noteKeyDown(event,${i})"
+          style="font-size:13px;color:#222;min-height:60px;outline:none;line-height:1.7;padding:8px;background:#f9f9f9;border-radius:10px;margin-bottom:10px"
+          class="${!n.body||n.body===''?'empty':''}"
+          data-ph="Start typing..."
+          >${n.body||''}</div>
+        <!-- Formatting toolbar -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="noteFormat(${i},'bold')"
+            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-weight:700;color:#222">B</button>
+          <button onclick="noteFormat(${i},'italic')"
+            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-style:italic;color:#222">I</button>
+          <button onclick="noteFormat(${i},'underline')"
+            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;text-decoration:underline;color:#222">U</button>
+          <button onclick="noteAddCheckbox(${i})"
+            style="padding:0 10px;height:30px;border:none;border-radius:7px;background:#EAF3DE;color:#27500A;font-size:12px;cursor:pointer;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Add item</button>
+        </div>
+        <div style="font-size:10px;color:#ccc;margin-top:8px">${esc(n.date||'')}</div>`}
+      </div>`).join(''):`<div style="text-align:center;font-size:13px;color:var(--sub);padding:32px 16px">
+        <div style="color:#ccc;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 12h8M8 16h5"/></svg></div>
+        No notes yet.<br>Tap ＋ to create your first note.
+      </div>`}
+    </div>
+    ${nav()}
+  </div>`;
+}
+
+function addNote(){
+  if(!DB.notes)DB.notes=[];
+  DB.notes.unshift({id:uid(),title:'',body:'',date:td(),collapsed:false});
+  sv();goTo('notes');
+}
+
+function noteFormat(i,cmd){
+  const el=document.getElementById('note-body-'+i);
+  if(el){el.focus();document.execCommand(cmd,false,null);DB.notes[i].body=el.innerHTML;sv();}
+}
+
+function noteAddCheckbox(i){
+  const el=document.getElementById('note-body-'+i);
+  if(!el)return;
+  // Strip trailing BRs, whitespace-only text nodes, and zero-width space nodes
+  while(el.lastChild){
+    const lc=el.lastChild;
+    if(lc.nodeName==='BR'){el.removeChild(lc);continue;}
+    if(lc.nodeType===3&&lc.textContent.replace(/\u200B/g,'').trim()===''){el.removeChild(lc);continue;}
+    break;
+  }
+  _appendCheckboxRow(el,i,'');
+  DB.notes[i].body=el.innerHTML;sv();
+}
+
+function _appendCheckboxRow(el,i,text){
+  const wrap=document.createElement('div');
+  wrap.className='cb-row';
+  wrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
+  const cb=document.createElement('input');
+  cb.type='checkbox';
+  cb.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0';
+  const sp=document.createElement('span');
+  sp.contentEditable='true';
+  sp.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';
+  sp.setAttribute('data-cbrow','1');
+  if(text)sp.textContent=text;
+  cb.addEventListener('change',function(){
+    sp.style.textDecoration=this.checked?'line-through':'none';
+    sp.style.color=this.checked?'#bbb':'#222';
+    const noteEl=document.getElementById('note-body-'+i);
+    if(noteEl){DB.notes[i].body=noteEl.innerHTML;sv();}
+  });
+  wrap.appendChild(cb);
+  wrap.appendChild(sp);
+  el.appendChild(wrap);
+  // Place cursor at start of the text span (after the checkbox, not on it)
+  sp.focus();
+  const r=document.createRange();
+  r.setStart(sp,0);
+  r.collapse(true);
+  const s=window.getSelection();
+  s.removeAllRanges();
+  s.addRange(r);
+}
+
+function noteToggleCollapse(i){
+  if(!DB.notes[i])return;
+  DB.notes[i].collapsed=!DB.notes[i].collapsed;sv();render();
+}
+
+function noteKeyDown(e,i){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  const sel=window.getSelection();
+  if(!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);
+  const el=document.getElementById('note-body-'+i);
+
+  // Check if cursor is inside a checkbox span
+  let node=sel.anchorNode;
+  let cbRow=null;
+  while(node&&node!==el){
+    if(node.classList&&node.classList.contains('cb-row')){cbRow=node;break;}
+    node=node.parentNode;
+  }
+
+  if(cbRow){
+    const sp=cbRow.querySelector('span[data-cbrow]');
+    const text=sp?sp.textContent.replace(/\u200B/g,'').trim():'';
+    // Always add a new checkbox below — whether empty or not
+    // (removing on empty was causing items to disappear unexpectedly)
+    const next=cbRow.nextSibling;
+    const newWrap=document.createElement('div');
+    newWrap.className='cb-row';
+    newWrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
+    const cb2=document.createElement('input');
+    cb2.type='checkbox';
+    cb2.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0;vertical-align:middle';
+    const sp2=document.createElement('span');
+    sp2.contentEditable='true';
+    sp2.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';
+    sp2.setAttribute('data-cbrow','1');
+    cb2.addEventListener('change',function(){
+      sp2.style.textDecoration=this.checked?'line-through':'none';
+      sp2.style.color=this.checked?'#bbb':'#222';
+      if(el){DB.notes[i].body=el.innerHTML;sv();}
+    });
+    newWrap.appendChild(cb2);
+    newWrap.appendChild(sp2);
+    el.insertBefore(newWrap,next||null);
+    sp2.focus();
+    const r3=document.createRange();
+    r3.setStart(sp2,0);
+    r3.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r3);
+  } else {
+    // Normal text area — insert BR + zero-width space, cursor stays left
+    range.deleteContents();
+    const br=document.createElement('br');
+    const zws=document.createTextNode('\u200B');
+    range.insertNode(zws);
+    range.insertNode(br);
+    range.setStartAfter(zws);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  if(el){DB.notes[i].body=el.innerHTML;sv();}
+}
+
+
+// ── DELETE FUNCTIONS ─────────────────────────────────────────────────────────
+function confirmDeleteGroup(){
+  const pc=pendingConfirm;
+  DB.transferGroups=DB.transferGroups.filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Group deleted');goTo('transfers');
+}
+
+function confirmDeleteTask(){
+  const pc=pendingConfirm;
+  DB.tasks=DB.tasks.filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Task deleted');render();
+}
+
+function confirmDeleteNote(){
+  const pc=pendingConfirm;
+  if(DB.notes)DB.notes.splice(pc.idx,1);
+  pendingConfirm=null;AM=null;sv();render();
+}
+
+function setDefaultWallet(){
+  const sel=document.getElementById('mfr');
+  if(!sel)return;
+  defaultFromWalletId=sel.value;
+  sv();
+  showToast('Default wallet set');
+  // Re-render the modal to show star on correct option
+  oM('addxfer');
+}
+
+// ═══════════════════════════════════════════════
+// CSV EXPORT
+// ═══════════════════════════════════════════════
+function xCSV(){
+  const h=['Date','Description','Category','Type','Wallet','Amount (₱)','Notes'];
+  const rows=DB.transactions.map(t=>[t.date,t.name,t.cat||'',t.type,t.walletName,t.type==='expense'?'-'+t.amount:'+'+t.amount,t.note||''].map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(','));
+  const name=DB.wallets.length?DB.wallets[0].name:'FinTrack';
+  const csv=['"FINTRACK - STATEMENT OF ACCOUNT","","","","","",""',`"Account:","${name}","","Generated:","${td()}","",""`,'"","","","","","",""',h.join(','),...rows].join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='FinTrack_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+// ═══════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+ld();render();
+</script>
+</body>
+</html>
