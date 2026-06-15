@@ -96,6 +96,18 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   <div id="mh"></div>
 </div>
 <div id="toast">✓ Done!</div>
+<!-- Fullscreen QR overlay — lives outside screens so works everywhere -->
+<div id="qr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;flex-direction:column;align-items:center;justify-content:center" onclick="closeQR()">
+  <div style="position:relative;max-width:320px;width:90%" onclick="event.stopPropagation()">
+    <img id="qr-fullimg" src="" style="width:100%;border-radius:16px;display:block" alt="QR">
+    <div id="qr-fulllabel" style="color:#fff;font-size:15px;font-weight:600;text-align:center;margin-top:12px"></div>
+    <div id="qr-fullref" style="color:#aaa;font-size:12px;text-align:center;margin-top:3px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
+      <button onclick="shareQR()" style="padding:10px 24px;background:#185FA5;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">Share</button>
+      <button onclick="closeQR()" style="padding:10px 24px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════
@@ -118,7 +130,7 @@ const BANKS=Object.keys(BC);
 // ═══════════════════════════════════════════════
 let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:'Monthly Income'}};
 let CS='home', AM=null;
-let hwExp=false,hwDet=null,ewId=null,wMore={};
+let hwExp=false,hwDet=null,ewId=null,wMore={},resCollapsed={};
 let fhExp={},fhFull={},tgExp={},lf='all';
 let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null;
 let tgMonthFilter='all'; // for transfer group month/year filter
@@ -399,7 +411,7 @@ function bWallets(){
           </div>
           ${exp?`<div class="wdrop">
             <div class="slbl">Your QR Code</div>
-            ${w.qrImg?`<img src="${w.qrImg}" class="img-prev" alt="QR">`:`<div style="font-size:12px;color:var(--sub);text-align:center;padding:6px 0">No QR uploaded yet</div>`}
+            ${w.qrImg?`<div style="position:relative;display:inline-block"><img src="${w.qrImg}" class="img-prev" alt="QR" onclick="viewWalQR('${w.id}')" style="cursor:pointer"><div style="font-size:10px;color:var(--sub);text-align:center;margin-top:3px">Tap to view fullscreen</div></div>`:`<div style="font-size:12px;color:var(--sub);text-align:center;padding:6px 0">No QR uploaded yet</div>`}
             <button class="btns" style="font-size:12px;padding:8px;margin-bottom:12px" onclick="aWalQR='${w.id}';oM('uploadqr')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V9m0 0l-4 4m4-4l4 4"/><path d="M5 19h14"/></svg> Upload / Change QR</button>
             <div class="slbl">Recent Transactions (last 10)</div>
             ${r10.length?r10.map(txR).join(''):`<div style="font-size:12px;color:var(--sub);padding:6px">No transactions yet</div>`}
@@ -957,22 +969,94 @@ function bBorrow(){
 // RESOURCES
 // ═══════════════════════════════════════════════
 function bRes(){
+  // Group resources
+  const groups={};
+  DB.resources.forEach(r=>{
+    const g=r.group||'Uncategorized';
+    if(!groups[g])groups[g]=[];
+    groups[g].push(r);
+  });
+  const groupNames=Object.keys(groups).sort((a,b)=>a==='Uncategorized'?1:b==='Uncategorized'?-1:a.localeCompare(b));
+
   return `<div class="screen">
     <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Resources Vault</span><span class="abi" onclick="oM('resource')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
     <div class="ct">
-      <div style="font-size:11px;color:var(--sub);padding:2px 2px 4px">Other people's QR codes, account numbers &amp; payment references</div>
-      <div class="card">
-        ${DB.resources.length?DB.resources.map(r=>`<div class="tr">
-          <div class="ticon" style="background:#FAECE7">${r.img?`<img src="${r.img}" style="width:32px;height:32px;border-radius:7px;object-fit:cover" alt="QR">`:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>'}</div>
-          <div style="flex:1;min-width:0">
-            <div class="tn">${esc(r.label)}</div>
-            <div class="td">${esc(r.ref)} · ${esc(r.rtype)}</div>
+      ${DB.resources.length?`<div style="font-size:11px;color:var(--sub);text-align:center">Swipe left to delete · Tap QR to view fullscreen</div>`:''}
+      ${groupNames.length?groupNames.map((gName,gi)=>{
+        const collapsed=resCollapsed[gi];
+        return `
+        <div class="card" style="padding:0">
+          <div onclick="resCollapsed[${gi}]=!resCollapsed[${gi}];render()" style="padding:12px 14px 10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+            <div class="slbl" style="margin-bottom:0">${esc(gName)}</div>
+            <span style="font-size:11px;color:var(--sub)">${collapsed?groups[gName].length+' item'+(groups[gName].length!==1?'s':''):''}</span>
           </div>
-        </div>`).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No resources yet.</div>`}
-      </div>
+          ${collapsed?'':`<div style="padding:0 10px 10px">${groups[gName].map(r=>`
+            <div style="position:relative;border-radius:12px;overflow:hidden;margin-bottom:6px">
+              <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:12px;z-index:0"></div>
+              <div class="swipe-item" id="rv-${r.id}" style="position:relative;z-index:1;transition:transform .15s;background:#fff;border:.5px solid rgba(0,0,0,.06);border-radius:12px"
+                ontouchstart="swipeStart(event,'rv-${r.id}')"
+                ontouchmove="swipeMove(event,'rv-${r.id}')"
+                ontouchend="swipeEnd(event,'rv-${r.id}','deleteResource','${r.id}')">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 11px">
+                  <div style="width:40px;height:40px;border-radius:9px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:${r.img?'pointer':'default'}" ${r.img?`onclick="viewQR('${r.id}')"`:''}>${r.img?`<img src="${r.img}" style="width:40px;height:40px;object-fit:cover" alt="QR">`:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>'}</div>
+                  <div style="flex:1;min-width:0">
+                    <div class="tn">${esc(r.label)}</div>
+                    <div class="td">${r.ref?esc(r.ref)+' · ':''}${esc(r.rtype||'')}</div>
+                  </div>
+                  ${r.img?`<button onclick="viewQR('${r.id}')" style="background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:10px;font-weight:600;padding:5px 8px;cursor:pointer;flex-shrink:0">View</button>`:''}
+                </div>
+              </div>
+            </div>`).join('')}</div>`}
+        </div>`;}).join(''):`<div class="card" style="text-align:center;font-size:12px;color:var(--sub);padding:20px">No resources yet. Tap ＋ to add one.</div>`}
     </div>
     ${nav()}
   </div>`;
+}
+
+let viewingQRId=null;
+let viewingQRSource=null; // 'resource' or 'wallet'
+function viewQR(id){
+  const r=DB.resources.find(x=>x.id===id);if(!r||!r.img)return;
+  viewingQRId=id;viewingQRSource='resource';
+  const ov=document.getElementById('qr-overlay');
+  document.getElementById('qr-fullimg').src=r.img;
+  document.getElementById('qr-fulllabel').textContent=r.label||'';
+  document.getElementById('qr-fullref').textContent=r.ref||'';
+  ov.style.display='flex';
+}
+function viewWalQR(id){
+  const w=DB.wallets.find(x=>x.id===id);if(!w||!w.qrImg)return;
+  viewingQRId=id;viewingQRSource='wallet';
+  const ov=document.getElementById('qr-overlay');
+  document.getElementById('qr-fullimg').src=w.qrImg;
+  document.getElementById('qr-fulllabel').textContent=w.name||'';
+  document.getElementById('qr-fullref').textContent=w.acct||w.bank||'';
+  ov.style.display='flex';
+}
+function closeQR(){
+  const ov=document.getElementById('qr-overlay');
+  if(ov)ov.style.display='none';
+  viewingQRId=null;viewingQRSource=null;
+}
+async function shareQR(){
+  const src=viewingQRSource==='wallet'?DB.wallets.find(x=>x.id===viewingQRId):DB.resources.find(x=>x.id===viewingQRId);
+  const img=src&&(src.qrImg||src.img);
+  if(!img)return;
+  try{
+    const res=await fetch(img);
+    const blob=await res.blob();
+    const file=new File([blob],(src.label||src.name||'qr')+'.png',{type:'image/png'});
+    if(navigator.share&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:src.label||src.name||'QR Code',text:src.ref||src.acct||''});
+    } else {
+      const a=document.createElement('a');a.href=img;a.download=(src.label||src.name||'qr')+'.png';a.click();
+    }
+  }catch(e){console.log('Share cancelled');}
+}
+function confirmDeleteResource(){
+  const pc=pendingConfirm;
+  DB.resources=DB.resources.filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Resource deleted');goTo('resources');
 }
 
 // ═══════════════════════════════════════════════
@@ -1175,6 +1259,7 @@ function bModal(name){
     case 'resource': return W('Add Resource',`
       <div style="font-size:11px;color:var(--sub);margin-bottom:10px">For other people's QR codes, contacts, account refs — not your own</div>
       <div class="field"><label>Label *</label><input id="mrl" type="text" placeholder="e.g. Juan's GCash QR" autocomplete="off"></div>
+      <div class="field"><label>Group</label><input id="mrg" type="text" placeholder="e.g. Family, Work, Friends" autocomplete="off" list="rg-list"><datalist id="rg-list">${[...new Set(DB.resources.map(r=>r.group).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
       <div class="field"><label>Reference / account number</label><input id="mrr" type="text" placeholder="e.g. 09xx-xxx-xxxx"></div>
       <div class="field"><label>Type</label><select id="mrt"><option>QR Code</option><option>Account Number</option><option>Contact</option><option>Reference</option></select></div>
       <div class="field"><label>Upload QR image (optional)</label><input id="mri" type="file" accept="image/*" onchange="pF('mri','mrp')"></div>
@@ -1313,15 +1398,17 @@ function bModal(name){
       const isN=pc.type==='note';
       const isW=pc.type==='wallet';
       const isCC=pc.type==='creditCard';
+      const isR=pc.type==='resource';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
       const grp=isG?DB.transferGroups.find(x=>x.id===pc.id):null;
-      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC)?DB.transferGroups.find(x=>x.id===pc.gid):null;
+      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC&&!isR)?DB.transferGroups.find(x=>x.id===pc.gid):null;
       const xItem=grpX?grpX.transfers.find(x=>x.id===pc.id):null;
       const tsk=isTk?DB.tasks.find(x=>x.id===pc.id):null;
+      const res=isR?DB.resources.find(x=>x.id===pc.id):null;
       const ntitle=(DB.notes&&pc.idx!==undefined&&DB.notes[pc.idx])?DB.notes[pc.idx].title||'Untitled note':'this note';
-      const label=isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
-      const kind=isW?'Wallet':isCC?'Credit Card':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
-      const fn=isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
+      const label=isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isR?(res?res.label:'this resource'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
+      const kind=isW?'Wallet':isCC?'Credit Card':isR?'Resource':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
+      const fn=isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isR?'confirmDeleteResource':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
       return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
           <div class="confirm-box">
@@ -1500,11 +1587,11 @@ function svPay(){
 }
 
 function svRes(){
-  const l=vv('mrl'),r=vv('mrr'),t=vv('mrt');
+  const l=vv('mrl'),g=vv('mrg')||'Uncategorized',r=vv('mrr'),t=vv('mrt');
   if(!l)return alert('Please enter a label');
   const inp=document.getElementById('mri');const file=inp&&inp.files[0];
-  if(file){const rd=new FileReader();rd.onload=e=>{DB.resources.push({id:uid(),label:l,ref:r,rtype:t,img:e.target.result});sv();cM();goTo('resources');};rd.readAsDataURL(file);}
-  else{DB.resources.push({id:uid(),label:l,ref:r,rtype:t,img:null});sv();cM();goTo('resources');}
+  if(file){const rd=new FileReader();rd.onload=e=>{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:e.target.result});sv();cM();goTo('resources');};rd.readAsDataURL(file);}
+  else{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:null});sv();cM();goTo('resources');}
 }
 
 function svBonus(){
@@ -1598,6 +1685,9 @@ function swipeEnd(e,wrapperId,deleteFn,deleteId,gid){
       } else if(deleteFn==='deleteCreditCard'){
         const cc=DB.creditCards.find(x=>x.id===deleteId);
         pendingConfirm={type:'creditCard',id:deleteId,name:cc?cc.name:'this card'};
+      } else if(deleteFn==='deleteResource'){
+        const res=DB.resources.find(x=>x.id===deleteId);
+        pendingConfirm={type:'resource',id:deleteId,name:res?res.label:'this resource'};
       } else {
         pendingConfirm={type:'xfer',id:deleteId,gid:gid};
       }
@@ -1914,4 +2004,3 @@ ld();render();
 </script>
 </body>
 </html>
-
