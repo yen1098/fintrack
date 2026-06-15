@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FinTrack">
 <title>FinTrack</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--blue:#003F8A;--blue2:#185FA5;--green:#27500A;--red:#791F1F;--purple:#5B21B6;--orange:#633806;--bg:#f0f2f5;--white:#fff;--border:rgba(0,0,0,0.08);--text:#222;--sub:#999;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -91,7 +92,19 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 </style>
 </head>
 <body>
-<div id="app">
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#1a1a2e;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px">
+  <div style="text-align:center;max-width:320px;width:100%">
+    <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
+    <button id="google-signin-btn" onclick="signInWithGoogle()" style="width:100%;padding:14px;background:#fff;color:#222;border:none;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div id="login-error" style="color:#ff6b6b;font-size:12px;margin-top:14px;display:none"></div>
+    <div id="login-loading" style="color:rgba(255,255,255,.5);font-size:12px;margin-top:14px;display:none">Signing in...</div>
+  </div>
+</div>
+<div id="app" style="display:none">
   <div id="sh" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
   <div id="mh"></div>
 </div>
@@ -139,16 +152,137 @@ let defaultFromWalletId=null; // default 'from' wallet for transfer groups
 let pendingConfirm=null; // {gid,tid,type:'mT'|'mD'}
 
 // ═══════════════════════════════════════════════
-// STORAGE
+// SUPABASE
 // ═══════════════════════════════════════════════
-function sv(){try{localStorage.setItem('fintrack2',JSON.stringify(DB));localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');}catch(e){alert('Storage full');}}
-function ld(){try{const d=localStorage.getItem('fintrack2');if(d)DB=JSON.parse(d);defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
-  // migrate old key
-  if(!d){const old=localStorage.getItem('fintrack');if(old)DB=JSON.parse(old);}
-  // ensure new fields exist on old saves
+const SUPA_URL='https://dytxqkfrjleobxlecsfy.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5dHhxa2Zyamxlb2J4bGVjc2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjAwNTgsImV4cCI6MjA5NzA5NjA1OH0.VkJZhribxCXLf5pZ4HzdfZn_kXD1fgjJSVHG2LWnHeE';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+let currentUser=null;
+let syncTimeout=null;
+
+async function signInWithGoogle(){
+  document.getElementById('login-loading').style.display='block';
+  document.getElementById('login-error').style.display='none';
+  const {error}=await supa.auth.signInWithOAuth({
+    provider:'google',
+    options:{redirectTo:window.location.href}
+  });
+  if(error){
+    document.getElementById('login-error').textContent=error.message;
+    document.getElementById('login-error').style.display='block';
+    document.getElementById('login-loading').style.display='none';
+  }
+}
+
+async function signOut(){
+  await supa.auth.signOut();
+  currentUser=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+
+async function initAuth(){
+  // Handle OAuth redirect
+  const {data:{session}}=await supa.auth.getSession();
+  if(session){
+    currentUser=session.user;
+    await loadFromCloud();
+    showApp();
+  } else {
+    showLogin();
+  }
+  // Listen for auth changes
+  supa.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session){
+      currentUser=session.user;
+      await loadFromCloud();
+      showApp();
+    } else if(event==='SIGNED_OUT'){
+      currentUser=null;
+      showLogin();
+    }
+  });
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  render();
+}
+
+function showLogin(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+
+// ═══════════════════════════════════════════════
+// STORAGE — Cloud + localStorage fallback
+// ═══════════════════════════════════════════════
+function sv(){
+  // Always save locally first (instant)
+  try{localStorage.setItem('fintrack2',JSON.stringify(DB));localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');}catch(e){}
+  // Show syncing indicator
+  const ind=document.getElementById('sync-indicator');
+  const lbl=document.getElementById('sync-label');
+  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
+  // Debounce cloud save (wait 1s after last change)
+  if(syncTimeout)clearTimeout(syncTimeout);
+  syncTimeout=setTimeout(async()=>{
+    await saveToCloud();
+    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
+  },1000);
+}
+
+async function saveToCloud(){
+  if(!currentUser)return;
+  try{
+    const payload=JSON.stringify({db:DB,defaultWallet:defaultFromWalletId});
+    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload},{onConflict:'user_id'});
+  }catch(e){console.log('Cloud save error:',e);}
+}
+
+async function loadFromCloud(){
+  if(!currentUser)return;
+  try{
+    const {data,error}=await supa.from('fintrack_data').select('data').eq('user_id',currentUser.id).single();
+    if(data&&data.data){
+      const parsed=JSON.parse(data.data);
+      DB=parsed.db||DB;
+      defaultFromWalletId=parsed.defaultWallet||null;
+      migrateDB();
+    } else {
+      // No cloud data yet — try migrating from localStorage
+      ld();
+      if(DB.wallets.length>0)await saveToCloud(); // push local data to cloud
+    }
+  }catch(e){
+    console.log('Cloud load error, using local:',e);
+    ld();
+  }
+}
+
+function ld(){
+  try{
+    const d=localStorage.getItem('fintrack2');
+    if(d)DB=JSON.parse(d);
+    defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
+    if(!d){const old=localStorage.getItem('fintrack');if(old)DB=JSON.parse(old);}
+    migrateDB();
+  }catch(e){}
+}
+
+function migrateDB(){
   if(!DB.creditCards)DB.creditCards=[];
   if(!DB.toSpend)DB.toSpend={base:0,label:'Monthly Income'};
-}catch(e){}}
+  if(!DB.wallets)DB.wallets=[];
+  if(!DB.transactions)DB.transactions=[];
+  if(!DB.funds)DB.funds=[];
+  if(!DB.tasks)DB.tasks=[];
+  if(!DB.borrowings)DB.borrowings=[];
+  if(!DB.resources)DB.resources=[];
+  if(!DB.bonuses)DB.bonuses=[];
+  if(!DB.transferGroups)DB.transferGroups=[];
+}
 
 // ═══════════════════════════════════════════════
 // HELPERS
@@ -827,6 +961,15 @@ function bMore(){
           </div>
           <span style="color:#ccc;font-size:18px">›</span>
         </div>`).join('')}
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:4px">Signed in as</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">${currentUser?currentUser.email||currentUser.user_metadata?.full_name||'You':''}</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <div id="sync-indicator" style="width:8px;height:8px;border-radius:50%;background:#3B6D11;flex-shrink:0"></div>
+          <span style="font-size:11px;color:var(--sub)" id="sync-label">Synced to cloud</span>
+        </div>
+        <button onclick="signOut()" style="width:100%;padding:10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px">Sign out</button>
       </div>
     </div>
     ${nav()}
@@ -2000,7 +2143,7 @@ function xCSV(){
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-ld();render();
+initAuth();
 </script>
 </body>
 </html>
