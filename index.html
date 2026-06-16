@@ -77,10 +77,8 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .img-prev{width:80px;height:80px;border-radius:10px;object-fit:cover;display:block;margin:6px auto}
 [contenteditable].empty:before{content:attr(data-ph,'Start typing...');color:#ccc;pointer-events:none;position:absolute}
 [contenteditable].empty{position:relative}
-/* Toast popup */
 #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);background:rgba(30,30,30,0.92);color:#fff;padding:18px 28px;border-radius:20px;font-size:15px;font-weight:600;text-align:center;z-index:999;opacity:0;pointer-events:none;transition:all .25s;backdrop-filter:blur(4px)}
 #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-/* Confirm modal */
 .confirm-box{background:var(--white);border-radius:20px;padding:24px 20px;width:300px;text-align:center}
 .confirm-box h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)}
 .confirm-box p{font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.5}
@@ -109,7 +107,6 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   <div id="mh"></div>
 </div>
 <div id="toast">✓ Done!</div>
-<!-- Fullscreen QR overlay — lives outside screens so works everywhere -->
 <div id="qr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;flex-direction:column;align-items:center;justify-content:center" onclick="closeQR()">
   <div style="position:relative;max-width:320px;width:90%" onclick="event.stopPropagation()">
     <img id="qr-fullimg" src="" style="width:100%;border-radius:16px;display:block" alt="QR">
@@ -123,9 +120,6 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 </div>
 
 <script>
-// ═══════════════════════════════════════════════
-// BANK COLORS
-// ═══════════════════════════════════════════════
 const BC={
   'BDO':['#003F8A','#fff'],'BPI':['#B22222','#fff'],'Metrobank':['#003366','#fff'],
   'UnionBank':['#E8621A','#fff'],'Security Bank':['#CC0000','#fff'],'Landbank':['#006400','#fff'],
@@ -138,22 +132,16 @@ const BC={
 };
 const BANKS=Object.keys(BC);
 
-// ═══════════════════════════════════════════════
-// DB STATE
-// ═══════════════════════════════════════════════
 let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:'Monthly Income'}};
 let CS='home', AM=null;
 let hwExp=false,hwDet=null,ewId=null,wMore={},resCollapsed={};
 let fhExp={},fhFull={},tgExp={},lf='all';
 let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null;
-let tgMonthFilter='all'; // for transfer group month/year filter
-let homeTxLimit=10; // home recent tx show more
-let defaultFromWalletId=null; // default 'from' wallet for transfer groups
-let pendingConfirm=null; // {gid,tid,type:'mT'|'mD'}
+let tgMonthFilter='all';
+let homeTxLimit=10;
+let defaultFromWalletId=null;
+let pendingConfirm=null;
 
-// ═══════════════════════════════════════════════
-// SUPABASE
-// ═══════════════════════════════════════════════
 const SUPA_URL='https://dytxqkfrjleobxlecsfy.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5dHhxa2Zyamxlb2J4bGVjc2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjAwNTgsImV4cCI6MjA5NzA5NjA1OH0.VkJZhribxCXLf5pZ4HzdfZn_kXD1fgjJSVHG2LWnHeE';
 const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
@@ -182,7 +170,6 @@ async function signOut(){
 }
 
 async function initAuth(){
-  // Handle OAuth redirect
   const {data:{session}}=await supa.auth.getSession();
   if(session){
     currentUser=session.user;
@@ -191,7 +178,6 @@ async function initAuth(){
   } else {
     showLogin();
   }
-  // Listen for auth changes
   supa.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
       currentUser=session.user;
@@ -215,21 +201,17 @@ function showLogin(){
   document.getElementById('app').style.display='none';
 }
 
-// ═══════════════════════════════════════════════
-// STORAGE — Cloud + localStorage fallback
-// ═══════════════════════════════════════════════
 function sv(){
-  // Always save locally first (instant)
   try{localStorage.setItem('fintrack2',JSON.stringify(DB));localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');}catch(e){}
-  // Show syncing indicator
   const ind=document.getElementById('sync-indicator');
   const lbl=document.getElementById('sync-label');
   if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
-  // Debounce cloud save (wait 1s after last change)
   if(syncTimeout)clearTimeout(syncTimeout);
   syncTimeout=setTimeout(async()=>{
     await saveToCloud();
-    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
+    const ind2=document.getElementById('sync-indicator');
+    const lbl2=document.getElementById('sync-label');
+    if(ind2){ind2.style.background='#3B6D11';if(lbl2)lbl2.textContent='Synced to cloud';}
   },1000);
 }
 
@@ -241,19 +223,52 @@ async function saveToCloud(){
   }catch(e){console.log('Cloud save error:',e);}
 }
 
+async function forceSyncToCloud(){
+  const ind=document.getElementById('sync-indicator');
+  const lbl=document.getElementById('sync-label');
+  const btn=document.getElementById('force-sync-btn');
+  if(btn){btn.textContent='Syncing...';btn.disabled=true;}
+  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
+  try{
+    localStorage.setItem('fintrack2',JSON.stringify(DB));
+    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
+    await saveToCloud();
+    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
+    showToast('All data synced to cloud ✓');
+  }catch(e){
+    showToast('Sync failed — check connection');
+  }
+  if(btn){btn.textContent='Force sync to cloud';btn.disabled=false;}
+}
+
 async function loadFromCloud(){
   if(!currentUser)return;
   try{
     const {data,error}=await supa.from('fintrack_data').select('data').eq('user_id',currentUser.id).single();
     if(data&&data.data){
       const parsed=JSON.parse(data.data);
-      DB=parsed.db||DB;
-      defaultFromWalletId=parsed.defaultWallet||null;
-      migrateDB();
+      const cloudDB=parsed.db||{};
+      // Compare with local — whichever has more transactions wins
+      const localRaw=localStorage.getItem('fintrack2');
+      const localDB=localRaw?JSON.parse(localRaw):{};
+      const cloudTxCount=(cloudDB.transactions||[]).length;
+      const localTxCount=(localDB.transactions||[]).length;
+      if(localTxCount>cloudTxCount){
+        // Local has more data — use local and push to cloud
+        DB=localDB;
+        defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
+        migrateDB();
+        await saveToCloud();
+      } else {
+        // Cloud has more or equal — use cloud
+        DB=cloudDB;
+        defaultFromWalletId=parsed.defaultWallet||null;
+        migrateDB();
+      }
     } else {
-      // No cloud data yet — try migrating from localStorage
+      // No cloud data yet — push local up
       ld();
-      if(DB.wallets.length>0)await saveToCloud(); // push local data to cloud
+      await saveToCloud();
     }
   }catch(e){
     console.log('Cloud load error, using local:',e);
@@ -284,9 +299,6 @@ function migrateDB(){
   if(!DB.transferGroups)DB.transferGroups=[];
 }
 
-// ═══════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════
 const f$=n=>'₱'+Math.abs(Math.round(n)).toLocaleString();
 const td=()=>new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
@@ -303,17 +315,11 @@ function showToast(msg='✓ Done!',emoji=''){
   setTimeout(()=>el.classList.remove('show'),1800);
 }
 
-// Due in 3 days count for tasks badge
 function tasksDueSoon(){
   const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
   return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future&&new Date(t.due)>=now).length;
 }
 
-// ═══════════════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════════════
-
-// SVG icon map for dynamic rendering (More tab, txR, etc.)
 const SVGMAP={
   list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
   calendar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
@@ -329,17 +335,15 @@ const SVGMAP={
   film:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>',
   stack:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
   star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
-  stack:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
   other:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
 };
+
 function goTo(s){CS=s;render();}
 function render(){
   const screens={home:bHome,wallets:bWallets,funds:bFunds,transfers:bTransfers,more:bMore,tasks:bTasks,borrowing:bBorrow,resources:bRes,bonuses:bBonus,ledger:bLedger,notes:bNotes};
-  // Save scroll position before re-render
   const ct=document.querySelector('.ct');
   const scrollY=ct?ct.scrollTop:0;
   document.getElementById('sh').innerHTML=(screens[CS]||bHome)();
-  // Restore scroll position after re-render
   const ctNew=document.querySelector('.ct');
   if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
   const mhEl=document.getElementById('mh');
@@ -348,17 +352,13 @@ function render(){
   } else {
     mhEl.innerHTML=AM?`<div class="overlay" id="ov" onclick="if(event.target.id==='ov')cM()">${bModal(AM)}</div>`:'';
   }
-  const sub=['tasks','borrowing','resources','bonuses','ledger','notes'];
-  const dueSoon=tasksDueSoon();
   document.querySelectorAll('.ni').forEach(n=>{
     const t=n.getAttribute('dt');
+    const sub=['tasks','borrowing','resources','bonuses','ledger','notes'];
     n.classList.toggle('active',t===CS||(t==='more'&&sub.includes(CS)));
   });
 }
 
-// ═══════════════════════════════════════════════
-// NAV
-// ═══════════════════════════════════════════════
 function nav(){
   const due=tasksDueSoon();
   return `<div class="bn">
@@ -370,9 +370,6 @@ function nav(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// TX ROW
-// ═══════════════════════════════════════════════
 function txR(t){
   const C={Food:['#EAF3DE','food'],Utilities:['#FCEBEB','bolt'],Transport:['#E6F1FB','car'],Shopping:['#EAF3DE','cart'],Bills:['#FCEBEB','receipt'],Entertainment:['#EEEDFE','film'],Fund:['#FAEEDA','stack'],Bonus:['#FAEEDA','star'],Transfer:['#EDE9FE','exchange'],Other:['#f0f0f0','other']};
   const c=C[t.cat]||C.Other;
@@ -389,16 +386,11 @@ function txR(t){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// HOME
-// ═══════════════════════════════════════════════
 function calcToSpend(){
   let ts=DB.toSpend.base;
-  // Only deduct manual expenses (not fund use, not CC charges, not transfers)
   DB.transactions.forEach(t=>{
-    if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null && !(t.name&&t.name.includes('[CC:')) && t.note!=='Borrowing record' && t.note!=='Borrowing settlement')ts-=t.amount;
+    if(t.type==='expense'&&t.cat!=='Transfer'&&t.cat!=='Fund'&&t.walletId!==null&&!(t.name&&t.name.includes('[CC:'))&&t.note!=='Borrowing record'&&t.note!=='Borrowing settlement')ts-=t.amount;
   });
-  // Deduct all transfer group items (whether transferred or not — they're committed allocations)
   DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{ts-=t.amount;});});
   return ts;
 }
@@ -411,10 +403,7 @@ function bHome(){
   const due=tasksDueSoon();
   const toSpendVal=calcToSpend();
   const tsColor=toSpendVal>=0?'#3B6D11':'#E24B4A';
-  // Credit card total owed
   const ccTotal=DB.creditCards.reduce((s,c)=>s+c.used,0);
-
-  // Build wallet rows as plain string concatenation — no nested template literals
   let walSec='';
   if(DB.wallets.length){
     let walRows='';
@@ -440,24 +429,17 @@ function bHome(){
         +'<div style="display:flex;align-items:center;gap:8px">'
         +'<div style="width:9px;height:9px;border-radius:50%;background:'+cl[0]+'"></div>'
         +'<span style="font-size:13px;color:var(--text);font-weight:500">'+esc(w.name)+'</span>'
-        +lentBadge
-        +'</div>'
+        +lentBadge+'</div>'
         +'<div style="text-align:right">'
         +'<div style="font-size:13px;font-weight:600;color:var(--text)">'+f$(w.currentBalance)+'</div>'
-        +actualLine
-        +'</div></div>'
-        +txMini
-        +'</div>';
+        +actualLine+'</div></div>'+txMini+'</div>';
     });
     walSec='<div style="border-top:.5px solid rgba(0,0,0,.07);margin-top:12px;padding-top:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0" onclick="hwExp=!hwExp;hwDet=null;render()">'
       +'<span style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.8px">WALLETS</span>'
-      +'<span style="color:#ccc;font-size:13px">'+(hwExp?'▲':'▼')+'</span>'
-      +'</div>'
-      +(hwExp?'<div style="margin-top:6px">'+walRows+'</div>':'')
-      +'</div>';
+      +'<span style="color:#ccc;font-size:13px">'+(hwExp?'▲':'▼')+'</span></div>'
+      +(hwExp?'<div style="margin-top:6px">'+walRows+'</div>':'')+'</div>';
   }
-
   return `<div class="screen" style="position:relative">
     <div class="ab"><span class="abt">FinTrack</span></div>
     <div class="ct" style="padding-bottom:130px">
@@ -501,17 +483,14 @@ function bHome(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// WALLETS
-// ═══════════════════════════════════════════════
 function dullColor(hex){
-  // Blend hex color toward #aaaaaa to make it duller/lighter
   try{
     let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
     r=Math.round(r*0.6+180*0.4);g=Math.round(g*0.6+180*0.4);b=Math.round(b*0.6+180*0.4);
     return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
   }catch(e){return hex;}
 }
+
 function bWallets(){
   return `<div class="screen">
     <div class="ab"><span class="abi" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Wallets</span><span class="abi" onclick="oM('wallet')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
@@ -554,14 +533,13 @@ function bWallets(){
           </div>`:''}
         </div>`;
       }).join(''):`<div class="card" style="text-align:center;font-size:13px;color:var(--sub);padding:20px">No wallets yet.<br>Tap ＋ to add one.</div>`}
-      <!-- Credit Cards Section -->
       <div class="card" style="margin-top:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="slbl" style="margin-bottom:0">Credit Cards</div>
           <button onclick="oM('creditCard')" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:8px;font-size:11px;font-weight:600;padding:5px 10px;cursor:pointer">+ Add</button>
         </div>
         <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Not included in total balance — tracked separately${DB.creditCards.length?'  ·  Swipe left to delete':''}</div>
-        ${DB.creditCards.length?DB.creditCards.map((cc,i)=>{
+        ${DB.creditCards.length?DB.creditCards.map((cc)=>{
           const avail=cc.limit-cc.used;
           const usedPct=cc.limit>0?Math.min(100,Math.round(cc.used/cc.limit*100)):0;
           const barC=usedPct>80?'#E24B4A':usedPct>50?'#EF9F27':'#3B6D11';
@@ -572,14 +550,10 @@ function bWallets(){
               ontouchstart="swipeStart(event,'ccw-${cc.id}')"
               ontouchmove="swipeMove(event,'ccw-${cc.id}')"
               ontouchend="swipeEnd(event,'ccw-${cc.id}','deleteCreditCard','${cc.id}')">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-                <div>
-                  <div style="display:flex;align-items:center;gap:7px">
-                    <div style="width:9px;height:9px;border-radius:50%;background:${ccCl[0]}"></div>
-                    <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(cc.name)}</span>
-                  </div>
-                  ${cc.acct?`<div style="font-size:11px;color:var(--sub);margin-top:2px;margin-left:16px">${esc(cc.acct)}</div>`:''}
-                </div>
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+                <div style="width:9px;height:9px;border-radius:50%;background:${ccCl[0]}"></div>
+                <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(cc.name)}</span>
+                ${cc.acct?`<span style="font-size:11px;color:var(--sub)">${esc(cc.acct)}</span>`:''}
               </div>
               <div style="background:#e0e0e0;border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">
                 <div style="width:${usedPct}%;height:7px;border-radius:99px;background:${barC};transition:width .3s"></div>
@@ -604,11 +578,6 @@ function bWallets(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// FUNDS — CORRECTED BAR LOGIC
-// fd.total = money saved/added. fd.spent = money used.
-// Bar = remaining/total. Full = all saved intact. Shrinks as you spend.
-// ═══════════════════════════════════════════════
 function bFunds(){
   DB.funds.forEach(fd=>{
     if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;delete fd.budget;delete fd.used;}
@@ -700,12 +669,7 @@ function bFunds(){
     ${nav()}
   </div>`;
 }
-// ═══════════════════════════════════════════════
-// TRANSFERS
-// LOGIC:
-//   Fund allocation item:  Transferred only → moves From→To wallet, adds to fund.total. No Done button.
-//   Regular transfer item: Transferred → moves From→To wallet. Done → deducts from To wallet + logs tx.
-// ═══════════════════════════════════════════════
+
 function bTransfers(){
   const allMonths=[...new Set(DB.transferGroups.map(g=>{
     const d=new Date(g.createdAt||Date.now());
@@ -716,18 +680,13 @@ function bTransfers(){
     const key=d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0');
     return key===tgMonthFilter;
   });
-
   return `<div class="screen">
     <div class="ab"><span class="abi" onclick="goTo('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Transfer Groups</span><span class="abi" onclick="oM('newgroup')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
     <div class="ct">
       <div class="card" style="background:#EDE9FE;border:none;padding:10px 13px">
         <div style="font-size:12px;color:#5B21B6;font-weight:600;margin-bottom:3px">ℹ️ How it works</div>
-        <div style="font-size:11px;color:#6D28D9;line-height:1.5">
-          <b>Fund allocation:</b> Transferred moves money to wallet + fund. No Done needed.<br>
-          <b>Regular transfer:</b> Transferred moves From→To. Done deducts from the To wallet (physically sent out).
-        </div>
+        <div style="font-size:11px;color:#6D28D9;line-height:1.5"><b>Fund allocation:</b> Transferred moves money to wallet + fund. No Done needed.<br><b>Regular transfer:</b> Transferred moves From→To. Done deducts from the To wallet (physically sent out).</div>
       </div>
-
       <div style="display:flex;gap:8px;align-items:center">
         <select onchange="tgMonthFilter=this.value;render()" style="flex:1;font-size:12px;padding:7px 10px;border:.5px solid rgba(0,0,0,.15);border-radius:10px;background:#fff;color:#333">
           <option value="all">All months</option>
@@ -739,14 +698,10 @@ function bTransfers(){
         </select>
         ${DB.transferGroups.some(g=>g.transfers.length>0)?`<button onclick="oM('allXferSummary')" style="padding:7px 12px;background:#E6F1FB;color:#0C447C;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg> Summary</button>`:''}
       </div>
-
       ${filteredGroups.length?filteredGroups.map(g=>{
         const exp=tgExp[g.id];
         const tc=g.transfers.length;
-        const dc=g.transfers.filter(t=>{
-          if(t.fundId) return t.transferred; // fund items: done = transferred
-          return t.done;
-        }).length;
+        const dc=g.transfers.filter(t=>t.fundId?t.transferred:t.done).length;
         const totalAmt=g.transfers.reduce((s,t)=>s+t.amount,0);
         const allDone=tc>0&&g.transfers.every(t=>t.fundId?t.transferred:t.done);
         return `<div class="tgcard" style="overflow:visible">
@@ -784,14 +739,10 @@ function bTransfers(){
                   </div>
                   <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end;padding-left:8px">
                     ${isFund
-                      ? (!t.transferred
-                          ? `<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`
-                          : `<span class="badge bok">✓ Done</span>`)
-                      : (!t.transferred
-                          ? `<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`
-                          : !t.done
-                            ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="badge bi" style="white-space:nowrap">↔ Transferred</span><button class="tbtn tbtn-d" onclick="askConfirm('mD','${g.id}','${t.id}')">Done</button></div>`
-                            : `<span class="badge bok">✓ Done</span>`)}
+                      ?(!t.transferred?`<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`:`<span class="badge bok">✓ Done</span>`)
+                      :(!t.transferred?`<button class="tbtn tbtn-t" onclick="askConfirm('mT','${g.id}','${t.id}')">Transferred</button>`
+                        :!t.done?`<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="badge bi" style="white-space:nowrap">↔ Transferred</span><button class="tbtn tbtn-d" onclick="askConfirm('mD','${g.id}','${t.id}')">Done</button></div>`
+                        :`<span class="badge bok">✓ Done</span>`)}
                   </div>
                 </div>
               </div>`;
@@ -809,84 +760,60 @@ function bTransfers(){
   </div>`;
 }
 
-function toggleTemplate(gid){
-  const g=DB.transferGroups.find(x=>x.id===gid);
-  if(g){g.isTemplate=!g.isTemplate;sv();render();}
-}
+function toggleTemplate(gid){const g=DB.transferGroups.find(x=>x.id===gid);if(g){g.isTemplate=!g.isTemplate;sv();render();}}
 
 function askTransferAll(gid){
-  const g=DB.transferGroups.find(x=>x.id===gid);
-  if(!g)return;
+  const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
   const pending=g.transfers.filter(t=>!t.transferred);
   const total=pending.reduce((s,t)=>s+t.amount,0);
   pendingConfirm={type:'transferAll',gid};
   pendingConfirm.label=`Transfer all ${pending.length} pending item${pending.length!==1?'s':''} (${f$(total)})?`;
-  AM='confirm';
-  render();
+  AM='confirm';render();
 }
 
 function doTransferAll(gid){
-  const g=DB.transferGroups.find(x=>x.id===gid);
-  if(!g)return;
+  const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
   g.transfers.filter(t=>!t.transferred).forEach(t=>mT(gid,t.id));
-  pendingConfirm=null;AM=null;
-  showToast('All transferred');render();
+  pendingConfirm=null;AM=null;showToast('All transferred');render();
 }
 
-// TRANSFERRED: moves From→To wallet immediately. If fund item, adds to fund.total too.
 function mT(gid,tid){
   const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
   const t=g.transfers.find(x=>x.id===tid);if(!t||t.transferred)return;
   const fw=gW(t.fromId);const tw=gW(t.toId);
-  // Always move money from→to on Transferred
   if(fw){fw.currentBalance-=t.amount;fw.actualBalance-=t.amount;}
   if(tw){tw.currentBalance+=t.amount;tw.actualBalance+=t.amount;}
-  // If it's a fund allocation, add to fund.total (not spent)
   if(t.fundId){
     const fd=DB.funds.find(x=>x.id===t.fundId);
-    if(fd){
-      if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
-      fd.total+=t.amount;
-      if(!fd.uses)fd.uses=[];
-    }
+    if(fd){if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}fd.total+=t.amount;if(!fd.uses)fd.uses=[];}
   }
   t.transferred=true;
-  // Log the transfer transaction
   if(fw)addTx({type:'expense',name:`Transfer: ${t.title||'Group transfer'} → ${tw?tw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:t.note||''});
   if(tw)addTx({type:'income',name:`Transfer: ${t.title||'Group transfer'} ← ${fw?fw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||''});
   sv();showToast('Transferred');render();
 }
 
-// DONE (regular transfers only): deducts from the To wallet (money physically sent out from there)
 function mD(gid,tid){
   const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
   const t=g.transfers.find(x=>x.id===tid);if(!t||t.done)return;
   const tw=gW(t.toId);
-  // Deduct from the To wallet since the money is now physically going out
   if(tw){tw.currentBalance-=t.amount;tw.actualBalance-=t.amount;}
   t.done=true;
   if(tw)addTx({type:'expense',name:`Done: ${t.title||'Group transfer'} sent from ${tw.name}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||'Physically sent'});
   sv();showToast('Marked as Done ✓');render();
 }
 
-// Confirmation modal
-function askConfirm(type,gid,tid){
-  pendingConfirm={type,gid,tid};
-  AM='confirm';
-  render();
-}
+function askConfirm(type,gid,tid){pendingConfirm={type,gid,tid};AM='confirm';render();}
 
 function bConfirmModal(){
   if(!pendingConfirm)return '';
   const {type,gid,tid}=pendingConfirm;
-
-  // Transfer All
   if(type==='transferAll'){
     return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
       <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
         <div class="confirm-box">
           <h3>Transfer All</h3>
-          <p>${pendingConfirm.label||'Transfer all pending items?'}<br><br>Wallet balances update immediately. Fund allocations will be completed. Regular transfers will still need Done tapped individually.</p>
+          <p>${pendingConfirm.label||'Transfer all pending items?'}<br><br>Wallet balances update immediately.</p>
           <div class="confirm-btns">
             <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
             <button class="cb-ok" onclick="doTransferAll('${gid}')">Yes, transfer all</button>
@@ -895,20 +822,16 @@ function bConfirmModal(){
       </div>
     </div>`;
   }
-
   const g=DB.transferGroups.find(x=>x.id===gid);
   const t=g&&g.transfers.find(x=>x.id===tid);
   const fw=t?gW(t.fromId):null;const tw=t?gW(t.toId):null;
-  const isT=type==='mT';
-  const isFund=t&&!!t.fundId;
+  const isT=type==='mT';const isFund=t&&!!t.fundId;
   const fd=isFund?DB.funds.find(x=>x.id===t.fundId):null;
   return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
     <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
       <div class="confirm-box">
         <h3>${isT?'Confirm Transfer':'Mark as Done'}</h3>
-        <p>${isT
-          ? `Move <b>${f$(t?t.amount:0)}</b> from <b>${fw?fw.name:'?'}</b> to <b>${tw?tw.name:'?'}</b>${isFund?` and add to fund <b>${fd?fd.name:'?'}</b>`:''}?<br><br>Wallet balances update immediately.`
-          : `Mark <b>${esc(t?t.title:'this transfer')}</b> as physically sent?<br><br><b>${f$(t?t.amount:0)}</b> will be deducted from <b>${tw?tw.name:'?'}</b>.`}</p>
+        <p>${isT?`Move <b>${f$(t?t.amount:0)}</b> from <b>${fw?fw.name:'?'}</b> to <b>${tw?tw.name:'?'}</b>${isFund?` and add to fund <b>${fd?fd.name:'?'}</b>`:''}?<br><br>Wallet balances update immediately.`:`Mark <b>${esc(t?t.title:'this transfer')}</b> as physically sent?<br><br><b>${f$(t?t.amount:0)}</b> will be deducted from <b>${tw?tw.name:'?'}</b>.`}</p>
         <div class="confirm-btns">
           <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
           <button class="cb-ok" onclick="pendingConfirm=null;AM=null;${type}('${gid}','${tid}')">${isT?'Yes, Transfer':'Yes, Done'}</button>
@@ -918,9 +841,6 @@ function bConfirmModal(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// LEDGER
-// ═══════════════════════════════════════════════
 function bLedger(){
   const tx=lf==='all'?DB.transactions:DB.transactions.filter(t=>t.type===lf);
   return `<div class="screen">
@@ -936,9 +856,6 @@ function bLedger(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// MORE
-// ═══════════════════════════════════════════════
 function bMore(){
   const due=tasksDueSoon();
   const items=[
@@ -955,30 +872,26 @@ function bMore(){
       <div class="card" style="padding:0;overflow:hidden">
         ${items.map((r,i)=>`<div onclick="goTo('${r[0]}')" style="display:flex;align-items:center;gap:13px;padding:15px 16px;cursor:pointer;${i<items.length-1?'border-bottom:.5px solid rgba(0,0,0,.06)':''}">
           <div style="width:38px;height:38px;border-radius:11px;background:${r[2]};display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;color:${r[5]}">${SVGMAP[r[1]]||''}${r[6]>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">${r[6]}</span>`:''}</div>
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:var(--text)">${r[3]}</div>
-            <div style="font-size:11px;color:var(--sub);margin-top:1px">${r[4]}</div>
-          </div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--text)">${r[3]}</div><div style="font-size:11px;color:var(--sub);margin-top:1px">${r[4]}</div></div>
           <span style="color:#ccc;font-size:18px">›</span>
         </div>`).join('')}
       </div>
       <div class="card" style="padding:14px 16px">
         <div style="font-size:11px;color:var(--sub);margin-bottom:4px">Signed in as</div>
         <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">${currentUser?currentUser.email||currentUser.user_metadata?.full_name||'You':''}</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
           <div id="sync-indicator" style="width:8px;height:8px;border-radius:50%;background:#3B6D11;flex-shrink:0"></div>
           <span style="font-size:11px;color:var(--sub)" id="sync-label">Synced to cloud</span>
         </div>
-        <button onclick="signOut()" style="width:100%;padding:10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px">Sign out</button>
+        <button id="force-sync-btn" onclick="forceSyncToCloud()" style="width:100%;padding:10px;background:#E6F1FB;color:#0C447C;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">⬆ Force sync to cloud</button>
+        <div style="font-size:10px;color:var(--sub);margin-bottom:10px;text-align:center">Use this on your phone to push all local data up</div>
+        <button onclick="signOut()" style="width:100%;padding:10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer">Sign out</button>
       </div>
     </div>
     ${nav()}
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// TASKS — with done animation, reversible, freq, badge, redirect from quick action
-// ═══════════════════════════════════════════════
 function bTasks(){
   const ya=new Date();ya.setFullYear(ya.getFullYear()-1);
   const valid=DB.tasks.filter(t=>!t.rawDate||new Date(t.rawDate)>=ya);
@@ -997,7 +910,7 @@ function bTasks(){
             <div style="flex:1;min-width:0">
               <div class="tn">${esc(t.name)}</div>
               <div class="td" style="${isDueSoon?'color:#E24B4A;font-weight:600':''}">${esc(t.due||'No due date')} · ${f$(t.amt)}${t.walletId&&gW(t.walletId)?' · '+esc(gW(t.walletId).name):''}</div>
-              ${t.freq?`<div class="td"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> ${esc(t.freq)}</div>`:''}
+              ${t.freq?`<div class="td">${esc(t.freq)}</div>`:''}
               ${t.note?`<div class="td" style="font-style:italic">${esc(t.note)}</div>`:''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -1025,47 +938,31 @@ function bTasks(){
 
 function dTask(id){
   const t=DB.tasks.find(x=>x.id===id);if(!t)return;
-  // Animate row
   const row=document.getElementById('task-row-'+id);
   if(row){row.style.transition='all .3s';row.style.opacity='0';row.style.transform='translateX(40px)';}
   setTimeout(()=>{
-    t.done=true;
-    t.completedTxId=null;
+    t.done=true;t.completedTxId=null;
     if(t.walletId&&t.amt>0){
       const w=gW(t.walletId);
       if(w){w.currentBalance-=t.amt;w.actualBalance-=t.amt;}
-      const txId=uid();
-      t.completedTxId=txId;
+      const txId=uid();t.completedTxId=txId;
       DB.transactions.unshift({id:txId,rawDate:new Date().toISOString(),date:td(),type:'expense',name:'Task: '+t.name,amount:t.amt,cat:'Bills',walletId:t.walletId,walletName:w?w.name:'',note:t.note||''});
     }
-    sv();
-    showToast('Task done');
-    render();
+    sv();showToast('Task done');render();
   },300);
 }
 
 function uTask(id){
   const t=DB.tasks.find(x=>x.id===id);if(!t)return;
   t.done=false;
-  // Reverse financial movement
   if(t.completedTxId){
-    // Remove the transaction
     DB.transactions=DB.transactions.filter(tx=>tx.id!==t.completedTxId);
-    // Restore wallet balance
-    if(t.walletId&&t.amt>0){
-      const w=gW(t.walletId);
-      if(w){w.currentBalance+=t.amt;w.actualBalance+=t.amt;}
-    }
+    if(t.walletId&&t.amt>0){const w=gW(t.walletId);if(w){w.currentBalance+=t.amt;w.actualBalance+=t.amt;}}
     t.completedTxId=null;
   }
   sv();showToast('Task restored','↩️');render();
 }
 
-// ═══════════════════════════════════════════════
-// BORROWING — fixed balance logic
-// When I lent: currentBalance shown = actual minus lent out
-// When they pay: ONLY currentBalance goes up (recovering lent money), actualBalance unchanged
-// ═══════════════════════════════════════════════
 function bBorrow(){
   const lent=DB.borrowings.filter(b=>b.dir==='lent');
   const owe=DB.borrowings.filter(b=>b.dir==='owe');
@@ -1078,14 +975,8 @@ function bBorrow(){
     return `<div style="margin-bottom:10px;border:.5px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:10px;padding:11px 13px">
         <div style="width:38px;height:38px;border-radius:50%;background:${c[0]};color:${c[1]};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${ini(b.name)}</div>
-        <div style="flex:1;min-width:0">
-          <div class="tn">${esc(b.name)}</div>
-          <div class="td">${b.walletName?'From '+esc(b.walletName)+' · ':''}${b.due?'Due '+esc(b.due):'No due date'}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div class="ta ${b.dir==='lent'?'pos':'neg'}">${b.dir==='lent'?'+':'−'}${f$(rem)}</div>
-          <div style="font-size:10px;color:var(--sub)">of ${f$(b.total)}</div>
-        </div>
+        <div style="flex:1;min-width:0"><div class="tn">${esc(b.name)}</div><div class="td">${b.walletName?'From '+esc(b.walletName)+' · ':''}${b.due?'Due '+esc(b.due):'No due date'}</div></div>
+        <div style="text-align:right;flex-shrink:0"><div class="ta ${b.dir==='lent'?'pos':'neg'}">${b.dir==='lent'?'+':'−'}${f$(rem)}</div><div style="font-size:10px;color:var(--sub)">of ${f$(b.total)}</div></div>
       </div>
       <div style="padding:0 13px 11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${rem>0?`<button style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:9px;font-size:12px;cursor:pointer;font-weight:600" onclick="aBorrow='${b.id}';oM('payment')">Record payment</button>`:`<span style="font-size:12px;color:#3B6D11;font-weight:600">✓ Fully settled</span>`}
@@ -1108,27 +999,17 @@ function bBorrow(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// RESOURCES
-// ═══════════════════════════════════════════════
 function bRes(){
-  // Group resources
   const groups={};
-  DB.resources.forEach(r=>{
-    const g=r.group||'Uncategorized';
-    if(!groups[g])groups[g]=[];
-    groups[g].push(r);
-  });
+  DB.resources.forEach(r=>{const g=r.group||'Uncategorized';if(!groups[g])groups[g]=[];groups[g].push(r);});
   const groupNames=Object.keys(groups).sort((a,b)=>a==='Uncategorized'?1:b==='Uncategorized'?-1:a.localeCompare(b));
-
   return `<div class="screen">
     <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Resources Vault</span><span class="abi" onclick="oM('resource')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
     <div class="ct">
       ${DB.resources.length?`<div style="font-size:11px;color:var(--sub);text-align:center">Swipe left to delete · Tap QR to view fullscreen</div>`:''}
       ${groupNames.length?groupNames.map((gName,gi)=>{
         const collapsed=resCollapsed[gi];
-        return `
-        <div class="card" style="padding:0">
+        return `<div class="card" style="padding:0">
           <div onclick="resCollapsed[${gi}]=!resCollapsed[${gi}];render()" style="padding:12px 14px 10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
             <div class="slbl" style="margin-bottom:0">${esc(gName)}</div>
             <span style="font-size:11px;color:var(--sub)">${collapsed?groups[gName].length+' item'+(groups[gName].length!==1?'s':''):''}</span>
@@ -1142,10 +1023,7 @@ function bRes(){
                 ontouchend="swipeEnd(event,'rv-${r.id}','deleteResource','${r.id}')">
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 11px">
                   <div style="width:40px;height:40px;border-radius:9px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:${r.img?'pointer':'default'}" ${r.img?`onclick="viewQR('${r.id}')"`:''}>${r.img?`<img src="${r.img}" style="width:40px;height:40px;object-fit:cover" alt="QR">`:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>'}</div>
-                  <div style="flex:1;min-width:0">
-                    <div class="tn">${esc(r.label)}</div>
-                    <div class="td">${r.ref?esc(r.ref)+' · ':''}${esc(r.rtype||'')}</div>
-                  </div>
+                  <div style="flex:1;min-width:0"><div class="tn">${esc(r.label)}</div><div class="td">${r.ref?esc(r.ref)+' · ':''}${esc(r.rtype||'')}</div></div>
                   ${r.img?`<button onclick="viewQR('${r.id}')" style="background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:10px;font-weight:600;padding:5px 8px;cursor:pointer;flex-shrink:0">View</button>`:''}
                 </div>
               </div>
@@ -1156,55 +1034,20 @@ function bRes(){
   </div>`;
 }
 
-let viewingQRId=null;
-let viewingQRSource=null; // 'resource' or 'wallet'
-function viewQR(id){
-  const r=DB.resources.find(x=>x.id===id);if(!r||!r.img)return;
-  viewingQRId=id;viewingQRSource='resource';
-  const ov=document.getElementById('qr-overlay');
-  document.getElementById('qr-fullimg').src=r.img;
-  document.getElementById('qr-fulllabel').textContent=r.label||'';
-  document.getElementById('qr-fullref').textContent=r.ref||'';
-  ov.style.display='flex';
-}
-function viewWalQR(id){
-  const w=DB.wallets.find(x=>x.id===id);if(!w||!w.qrImg)return;
-  viewingQRId=id;viewingQRSource='wallet';
-  const ov=document.getElementById('qr-overlay');
-  document.getElementById('qr-fullimg').src=w.qrImg;
-  document.getElementById('qr-fulllabel').textContent=w.name||'';
-  document.getElementById('qr-fullref').textContent=w.acct||w.bank||'';
-  ov.style.display='flex';
-}
-function closeQR(){
-  const ov=document.getElementById('qr-overlay');
-  if(ov)ov.style.display='none';
-  viewingQRId=null;viewingQRSource=null;
-}
+let viewingQRId=null,viewingQRSource=null;
+function viewQR(id){const r=DB.resources.find(x=>x.id===id);if(!r||!r.img)return;viewingQRId=id;viewingQRSource='resource';const ov=document.getElementById('qr-overlay');document.getElementById('qr-fullimg').src=r.img;document.getElementById('qr-fulllabel').textContent=r.label||'';document.getElementById('qr-fullref').textContent=r.ref||'';ov.style.display='flex';}
+function viewWalQR(id){const w=DB.wallets.find(x=>x.id===id);if(!w||!w.qrImg)return;viewingQRId=id;viewingQRSource='wallet';const ov=document.getElementById('qr-overlay');document.getElementById('qr-fullimg').src=w.qrImg;document.getElementById('qr-fulllabel').textContent=w.name||'';document.getElementById('qr-fullref').textContent=w.acct||w.bank||'';ov.style.display='flex';}
+function closeQR(){const ov=document.getElementById('qr-overlay');if(ov)ov.style.display='none';viewingQRId=null;viewingQRSource=null;}
 async function shareQR(){
   const src=viewingQRSource==='wallet'?DB.wallets.find(x=>x.id===viewingQRId):DB.resources.find(x=>x.id===viewingQRId);
-  const img=src&&(src.qrImg||src.img);
-  if(!img)return;
-  try{
-    const res=await fetch(img);
-    const blob=await res.blob();
-    const file=new File([blob],(src.label||src.name||'qr')+'.png',{type:'image/png'});
-    if(navigator.share&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:src.label||src.name||'QR Code',text:src.ref||src.acct||''});
-    } else {
-      const a=document.createElement('a');a.href=img;a.download=(src.label||src.name||'qr')+'.png';a.click();
-    }
+  const img=src&&(src.qrImg||src.img);if(!img)return;
+  try{const res=await fetch(img);const blob=await res.blob();const file=new File([blob],(src.label||src.name||'qr')+'.png',{type:'image/png'});
+    if(navigator.share&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:src.label||src.name||'QR Code',text:src.ref||src.acct||''});}
+    else{const a=document.createElement('a');a.href=img;a.download=(src.label||src.name||'qr')+'.png';a.click();}
   }catch(e){console.log('Share cancelled');}
 }
-function confirmDeleteResource(){
-  const pc=pendingConfirm;
-  DB.resources=DB.resources.filter(x=>x.id!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Resource deleted');goTo('resources');
-}
+function confirmDeleteResource(){const pc=pendingConfirm;DB.resources=DB.resources.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Resource deleted');goTo('resources');}
 
-// ═══════════════════════════════════════════════
-// BONUSES
-// ═══════════════════════════════════════════════
 function bBonus(){
   const tot=DB.bonuses.reduce((s,b)=>s+b.amt,0);
   return `<div class="screen">
@@ -1217,12 +1060,9 @@ function bBonus(){
           const uses=b.uses||[];const ua=uses.reduce((s,u)=>s+u.amt,0);
           return `<div style="margin-bottom:12px;border:.5px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden">
             <div class="tr" style="padding:11px 13px;border:none">
-              <div class="ticon" style="background:#FAEEDA"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+              <div class="ticon" style="background:#FAEEDA">${SVGMAP.star}</div>
               <div style="flex:1;min-width:0"><div class="tn">${esc(b.name)}</div><div class="td">${esc(b.date)}</div></div>
-              <div style="text-align:right;flex-shrink:0">
-                <div class="ta pos">+${f$(b.amt)}</div>
-                ${ua>0?`<div style="font-size:10px;color:#E24B4A">Used: ${f$(ua)}</div>`:''}
-              </div>
+              <div style="text-align:right;flex-shrink:0"><div class="ta pos">+${f$(b.amt)}</div>${ua>0?`<div style="font-size:10px;color:#E24B4A">Used: ${f$(ua)}</div>`:''}</div>
             </div>
             <div style="padding:0 13px 11px;display:flex;gap:8px;align-items:center">
               <button style="padding:6px 12px;background:#FAECE7;color:#712B13;border:none;border-radius:9px;font-size:12px;cursor:pointer;font-weight:600" onclick="aBonus='${b.id}';oM('bonususe')">− Use funds</button>
@@ -1237,13 +1077,9 @@ function bBonus(){
   </div>`;
 }
 
-// ═══════════════════════════════════════════════
-// MODALS
-// ═══════════════════════════════════════════════
 function oM(n,x){
   AM=n;
   if(n==='fundincome'||n==='funduse')aFund=x||aFund;
-  if(n==='allXferSummary'){}// no extra id needed, reads all groups
   if(n==='bonususe')aBonus=x||aBonus;
   if(n==='payment')aBorrow=x||aBorrow;
   if(n==='addxfer')aTG=x||aTG;
@@ -1280,7 +1116,6 @@ function bModal(name){
       <button class="btnp" onclick="svInc()">Save income</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'qtransfer': return W('Quick Transfer',`
-      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">Instantly move funds between your wallets.</div>
       <div class="field"><label>From wallet *</label><select id="mfr">${wO}</select></div>
       <div class="field"><label>To wallet *</label><select id="mto">${wO}</select></div>
       <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
@@ -1305,26 +1140,18 @@ function bModal(name){
 
     case 'allXferSummary':{
       const wNet={};let grandXferTotal=0;let pendingCount=0;
-      DB.transferGroups.forEach(g=>{
-        g.transfers.forEach(t=>{
-          // Only include transfers not yet transferred (still pending)
-          if(t.transferred)return;
-          pendingCount++;
-          grandXferTotal+=t.amount;
-          const fn=gW(t.fromId)?gW(t.fromId).name:'Unknown';
-          const tn=gW(t.toId)?gW(t.toId).name:'Unknown';
-          if(!wNet[t.fromId])wNet[t.fromId]={name:fn,out:0,in:0};
-          if(!wNet[t.toId])wNet[t.toId]={name:tn,out:0,in:0};
-          wNet[t.fromId].out+=t.amount;
-          wNet[t.toId].in+=t.amount;
-        });
-      });
+      DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{
+        if(t.transferred)return;pendingCount++;grandXferTotal+=t.amount;
+        const fn=gW(t.fromId)?gW(t.fromId).name:'Unknown';const tn=gW(t.toId)?gW(t.toId).name:'Unknown';
+        if(!wNet[t.fromId])wNet[t.fromId]={name:fn,out:0,in:0};
+        if(!wNet[t.toId])wNet[t.toId]={name:tn,out:0,in:0};
+        wNet[t.fromId].out+=t.amount;wNet[t.toId].in+=t.amount;
+      });});
       const entries=Object.values(wNet);
       return W('Pending Transfers Summary',`
         <div style="font-size:11px;color:#7C3AED;background:#EDE9FE;border-radius:9px;padding:8px 10px;margin-bottom:14px">Only showing transfers not yet marked as Transferred</div>
-        ${pendingCount===0
-          ?`<div style="text-align:center;padding:16px 0"><div style="color:#3B6D11;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></div><div style="font-size:14px;font-weight:600;color:#3B6D11">All transfers done!</div><div style="font-size:12px;color:var(--sub);margin-top:4px">Nothing pending</div></div>`
-          :`<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Still to transfer: <span style="color:var(--blue2)">${f$(grandXferTotal)}</span> (${pendingCount} item${pendingCount!==1?'s':''})</div>
+        ${pendingCount===0?`<div style="text-align:center;padding:16px 0"><div style="color:#3B6D11;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></div><div style="font-size:14px;font-weight:600;color:#3B6D11">All transfers done!</div></div>`
+        :`<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Still to transfer: <span style="color:var(--blue2)">${f$(grandXferTotal)}</span> (${pendingCount} item${pendingCount!==1?'s':''})</div>
         <div class="slbl">Net per wallet</div>
         ${entries.map(w=>{const net=w.in-w.out;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.06)"><span style="font-size:13px;font-weight:600;color:var(--text)">${esc(w.name)}</span><div style="text-align:right">${w.out>0?`<div style="font-size:12px;color:#E24B4A">−${f$(w.out)} out</div>`:''} ${w.in>0?`<div style="font-size:12px;color:#3B6D11">+${f$(w.in)} in</div>`:''}<div style="font-size:11px;font-weight:700;color:${net>=0?'#3B6D11':'#E24B4A'}">${net>=0?'+':''}${f$(Math.abs(net))} net</div></div></div>`;}).join('')}`}
         <button class="btns" onclick="cM()">Close</button>`);}
@@ -1349,39 +1176,17 @@ function bModal(name){
       <div class="field"><label>Task name *</label><input id="mtn" type="text" placeholder="e.g. Meralco Bill" autocomplete="off"></div>
       <div class="field"><label>Amount (₱)</label><input id="mta" type="number" inputmode="decimal" placeholder="0"></div>
       <div class="field"><label>Due date</label><input id="mtd" type="date"></div>
-      <div class="field">
-        <label>Alert frequency</label>
+      <div class="field"><label>Alert frequency</label>
         <div style="display:flex;gap:8px;align-items:center">
-          <select id="mtfreqn" style="width:80px;font-size:14px;padding:9px 8px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8;appearance:none;-webkit-appearance:none;text-align:center">
-            <option value="">—</option>
-            ${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
-          </select>
-          <select id="mtfrequ" style="flex:1;font-size:14px;padding:9px 11px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8">
-            <option value="">— no alert —</option>
-            <option value="day">day</option>
-            <option value="week">week</option>
-            <option value="month">month</option>
-            <option value="year">year</option>
-          </select>
+          <select id="mtfreqn" style="width:80px;font-size:14px;padding:9px 8px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8;appearance:none;-webkit-appearance:none;text-align:center"><option value="">—</option>${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
+          <select id="mtfrequ" style="flex:1;font-size:14px;padding:9px 11px;border:.5px solid rgba(0,0,0,.2);border-radius:11px;background:#f8f8f8"><option value="">— no alert —</option><option value="day">day</option><option value="week">week</option><option value="month">month</option><option value="year">year</option></select>
         </div>
         <div style="font-size:10px;color:var(--sub);margin-top:4px" id="freq-preview">Select a number and unit above</div>
       </div>
       <div class="field"><label>Deduct from wallet when done (optional)</label><select id="mtw"><option value="">— none —</option>${wOp}</select></div>
       <div class="field"><label>Notes</label><textarea id="mtn2" placeholder="Optional note..."></textarea></div>
       <button class="btnp" onclick="svTask()">Add task</button><button class="btns" onclick="cM()">Cancel</button>
-      <script>
-        (function(){
-          function upd(){
-            var n=document.getElementById('mtfreqn').value;
-            var u=document.getElementById('mtfrequ').value;
-            var el=document.getElementById('freq-preview');
-            if(n&&u)el.textContent='Alert every '+n+' '+u+(n>1?'s':'');
-            else el.textContent='Select a number and unit above';
-          }
-          document.getElementById('mtfreqn').addEventListener('input',upd);
-          document.getElementById('mtfrequ').addEventListener('change',upd);
-        })();
-      <\/script>`);
+      <script>(function(){function upd(){var n=document.getElementById('mtfreqn').value;var u=document.getElementById('mtfrequ').value;var el=document.getElementById('freq-preview');if(n&&u)el.textContent='Alert every '+n+' '+u+(n>1?'s':'');else el.textContent='Select a number and unit above';}document.getElementById('mtfreqn').addEventListener('input',upd);document.getElementById('mtfrequ').addEventListener('change',upd);})();<\/script>`);
 
     case 'borrow': return W('Add Borrowing',`
       <div class="field"><label>Person name *</label><input id="mbn" type="text" placeholder="e.g. Juan Reyes" autocomplete="off"></div>
@@ -1400,7 +1205,6 @@ function bModal(name){
       <button class="btnp" onclick="svPay()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
     case 'resource': return W('Add Resource',`
-      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">For other people's QR codes, contacts, account refs — not your own</div>
       <div class="field"><label>Label *</label><input id="mrl" type="text" placeholder="e.g. Juan's GCash QR" autocomplete="off"></div>
       <div class="field"><label>Group</label><input id="mrg" type="text" placeholder="e.g. Family, Work, Friends" autocomplete="off" list="rg-list"><datalist id="rg-list">${[...new Set(DB.resources.map(r=>r.group).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
       <div class="field"><label>Reference / account number</label><input id="mrr" type="text" placeholder="e.g. 09xx-xxx-xxxx"></div>
@@ -1425,7 +1229,6 @@ function bModal(name){
       <button class="btnp" onclick="svBU()">Confirm use</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
     case 'uploadqr': return W('Upload Wallet QR',`
-      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Your personal receive QR code for this wallet</div>
       <div class="field"><label>Choose QR image *</label><input id="mqrf" type="file" accept="image/*" onchange="pF('mqrf','mqrp')"></div>
       <img id="mqrp" style="display:none" class="img-prev" alt="QR preview">
       <button class="btnp" onclick="svQR()">Save QR</button><button class="btns" onclick="cM()">Cancel</button>`);
@@ -1454,94 +1257,39 @@ function bModal(name){
       <div class="field"><label>Notes</label><textarea id="mno" placeholder="e.g. Monthly savings allocation"></textarea></div>
       <button class="btnp" onclick="svXI()">Add to group</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
-    case 'allXferSummary':{
-      // Aggregate ALL transfers across ALL groups
-      const wNet={};
-      let grandXferTotal=0;
-      DB.transferGroups.forEach(g=>{
-        g.transfers.forEach(t=>{
-          grandXferTotal+=t.amount;
-          const fn=gW(t.fromId)?gW(t.fromId).name:'Unknown';
-          const tn=gW(t.toId)?gW(t.toId).name:'Unknown';
-          if(!wNet[t.fromId])wNet[t.fromId]={name:fn,out:0,in:0};
-          if(!wNet[t.toId])wNet[t.toId]={name:tn,out:0,in:0};
-          wNet[t.fromId].out+=t.amount;
-          wNet[t.toId].in+=t.amount;
-        });
-      });
-      const entries=Object.values(wNet);
-      return W('All Transfers Summary',`
-        <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Across all ${DB.transferGroups.length} group${DB.transferGroups.length!==1?'s':''}</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Grand total to move: <span style="color:var(--blue2)">${f$(grandXferTotal)}</span></div>
-        <div class="slbl">Net per wallet</div>
-        ${entries.length?entries.map(w=>{
-          const net=w.in-w.out;
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.06)">
-            <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(w.name)}</span>
-            <div style="text-align:right">
-              ${w.out>0?`<div style="font-size:12px;color:#E24B4A">−${f$(w.out)} out</div>`:''}
-              ${w.in>0?`<div style="font-size:12px;color:#3B6D11">+${f$(w.in)} in</div>`:''}
-              <div style="font-size:11px;font-weight:700;color:${net>=0?'#3B6D11':'#E24B4A'}">${net>=0?'+':''}${net>=0?f$(net):f$(Math.abs(net))} net</div>
-            </div>
-          </div>`;
-        }).join(''):`<div style="font-size:12px;color:var(--sub);padding:10px 0;text-align:center">No transfers found</div>`}
-        <button class="btns" onclick="cM()">Close</button>`);}
-
     case 'linkfundwallet':{
       const fd=DB.funds.find(x=>x.id==aFund);
       const wLink=DB.wallets.map(w=>`<option value="${w.id}" ${fd&&fd.linkedWalletId===w.id?'selected':''}>${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
       return W('Link Wallet to Fund',`
-      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">The selected wallet will be auto-deducted when you tap Use on this fund.</div>
       <div class="field"><label>Wallet</label><select id="mfwlink"><option value="">— none —</option>${wLink}</select></div>
       <button class="btnp" onclick="saveLinkFundWallet()">Save link</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
     case 'fundSummary':{
-      // Group funds by linked wallet
       const byWallet={};
       DB.funds.forEach(fd=>{
         const key=fd.linkedWalletId||'__none__';
         if(!byWallet[key])byWallet[key]={walletName:fd.linkedWalletId&&gW(fd.linkedWalletId)?gW(fd.linkedWalletId).name:'No wallet linked',funds:[],totalSaved:0,totalSpent:0,totalRemaining:0};
-        byWallet[key].funds.push(fd);
-        byWallet[key].totalSaved+=fd.total||0;
-        byWallet[key].totalSpent+=fd.spent||0;
-        byWallet[key].totalRemaining+=(fd.total||0)-(fd.spent||0);
+        byWallet[key].funds.push(fd);byWallet[key].totalSaved+=fd.total||0;byWallet[key].totalSpent+=fd.spent||0;byWallet[key].totalRemaining+=(fd.total||0)-(fd.spent||0);
       });
       const entries=Object.values(byWallet);
       return W('Fund Summary by Wallet',`
         <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Remaining funds grouped by linked wallet</div>
-        ${entries.map(e=>`
-          <div style="margin-bottom:14px;border:.5px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden">
-            <div style="padding:10px 13px;background:#f8f8f8;border-bottom:.5px solid rgba(0,0,0,.06)">
-              <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(e.walletName)}</div>
-              <div style="display:flex;gap:12px;margin-top:4px">
-                <span style="font-size:11px;color:var(--sub)">Saved: <b style="color:var(--text)">${f$(e.totalSaved)}</b></span>
-                <span style="font-size:11px;color:var(--sub)">Used: <b style="color:#E24B4A">${f$(e.totalSpent)}</b></span>
-                <span style="font-size:11px;color:var(--sub)">Left: <b style="color:#3B6D11">${f$(e.totalRemaining)}</b></span>
-              </div>
+        ${entries.map(e=>`<div style="margin-bottom:14px;border:.5px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden">
+          <div style="padding:10px 13px;background:#f8f8f8;border-bottom:.5px solid rgba(0,0,0,.06)">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(e.walletName)}</div>
+            <div style="display:flex;gap:12px;margin-top:4px">
+              <span style="font-size:11px;color:var(--sub)">Saved: <b style="color:var(--text)">${f$(e.totalSaved)}</b></span>
+              <span style="font-size:11px;color:var(--sub)">Used: <b style="color:#E24B4A">${f$(e.totalSpent)}</b></span>
+              <span style="font-size:11px;color:var(--sub)">Left: <b style="color:#3B6D11">${f$(e.totalRemaining)}</b></span>
             </div>
-            ${e.funds.map(fd=>{
-              const rem=Math.max(0,(fd.total||0)-(fd.spent||0));
-              const pct=fd.total>0?Math.round(rem/fd.total*100):0;
-              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:.5px solid rgba(0,0,0,.04)">
-                <span style="font-size:12px;color:#444">${esc(fd.name)}</span>
-                <div style="text-align:right">
-                  <div style="font-size:12px;font-weight:600;color:${pct<20?'#E24B4A':pct<50?'#EF9F27':'#3B6D11'}">${f$(rem)} left</div>
-                  <div style="font-size:10px;color:var(--sub)">${pct}% remaining</div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>`).join('')}
+          </div>
+          ${e.funds.map(fd=>{const rem=Math.max(0,(fd.total||0)-(fd.spent||0));const pct=fd.total>0?Math.round(rem/fd.total*100):0;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:.5px solid rgba(0,0,0,.04)"><span style="font-size:12px;color:#444">${esc(fd.name)}</span><div style="text-align:right"><div style="font-size:12px;font-weight:600;color:${pct<20?'#E24B4A':pct<50?'#EF9F27':'#3B6D11'}">${f$(rem)} left</div><div style="font-size:10px;color:var(--sub)">${pct}% remaining</div></div></div>`;}).join('')}
+        </div>`).join('')}
         <button class="btns" onclick="cM()">Close</button>`);}
 
     case 'deleteConfirm':{
       const pc=pendingConfirm||{};
-      const isF=pc.type==='fund';
-      const isG=pc.type==='group';
-      const isTk=pc.type==='task';
-      const isN=pc.type==='note';
-      const isW=pc.type==='wallet';
-      const isCC=pc.type==='creditCard';
-      const isR=pc.type==='resource';
+      const isF=pc.type==='fund',isG=pc.type==='group',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
       const grp=isG?DB.transferGroups.find(x=>x.id===pc.id):null;
       const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC&&!isR)?DB.transferGroups.find(x=>x.id===pc.gid):null;
@@ -1566,13 +1314,11 @@ function bModal(name){
       </div>`;}
 
     case 'toSpendSettings': return W('To Spend Settings',`
-      <div style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.5">Set your starting balance (e.g. monthly income). Expenses and completed transfers will be deducted automatically.</div>
       <div class="field"><label>Label (e.g. Monthly Salary)</label><input id="tslabel" type="text" value="${esc(DB.toSpend.label)}" placeholder="Monthly Income"></div>
       <div class="field"><label>Starting balance (₱)</label><input id="tsbase" type="number" inputmode="decimal" placeholder="0" value="${DB.toSpend.base||''}"></div>
       <button class="btnp" onclick="svToSpend()">Save</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'creditCard': return W('Add Credit Card',`
-      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Credit card balance is tracked separately and not added to your total balance.</div>
       <div class="field"><label>Card name *</label><input id="ccn" type="text" placeholder="e.g. BDO Mastercard" autocomplete="off"></div>
       <div class="field"><label>Bank / Provider</label><select id="ccbk">${bk}</select></div>
       <div class="field"><label>Account / last 4 digits</label><input id="ccac" type="text" placeholder="e.g. •••• 1234"></div>
@@ -1601,94 +1347,61 @@ function bModal(name){
   }
 }
 
-// ═══════════════════════════════════════════════
-// FILE PREVIEW
-// ═══════════════════════════════════════════════
-function pF(inp,prev){
-  const f=document.getElementById(inp).files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};
-  r.readAsDataURL(f);
-}
+function pF(inp,prev){const f=document.getElementById(inp).files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};r.readAsDataURL(f);}
 
-// ═══════════════════════════════════════════════
-// SAVE FUNCTIONS
-// ═══════════════════════════════════════════════
 function svExp(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
   const wd=gW(w);if(!wd)return;
   wd.currentBalance-=a;wd.actualBalance-=a;
-  if(fi){const fd=DB.funds.find(x=>x.id===fi);if(fd){
-    if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
-    fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:n,date:td(),rawDate:new Date().toISOString()});
-  }}
+  if(fi){const fd=DB.funds.find(x=>x.id===fi);if(fd){if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:n,date:td(),rawDate:new Date().toISOString()});}}
   addTx({type:'expense',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
   cM();goTo('home');
 }
-
 function svInc(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc')||'Other',w=vv('mw'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
-  const wd=gW(w);if(!wd)return;
-  wd.currentBalance+=a;wd.actualBalance+=a;
-  addTx({type:'income',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
-  cM();goTo('home');
+  const wd=gW(w);if(!wd)return;wd.currentBalance+=a;wd.actualBalance+=a;
+  addTx({type:'income',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});cM();goTo('home');
 }
-
 function svQT(){
   const fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno');
-  if(!fr||!to||!a)return alert('Please fill all fields');
-  if(fr===to)return alert('From and To wallet must be different');
+  if(!fr||!to||!a)return alert('Please fill all fields');if(fr===to)return alert('From and To wallet must be different');
   const fw=gW(fr);const tw=gW(to);if(!fw||!tw)return;
-  fw.currentBalance-=a;fw.actualBalance-=a;
-  tw.currentBalance+=a;tw.actualBalance+=a;
+  fw.currentBalance-=a;fw.actualBalance-=a;tw.currentBalance+=a;tw.actualBalance+=a;
   addTx({type:'expense',name:`Transfer → ${tw.name}`,amount:a,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:no});
   addTx({type:'income',name:`Transfer ← ${fw.name}`,amount:a,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:no});
   cM();goTo('home');
 }
-
 function svWal(){
   const n=vv('mwn'),bk=vv('mbk'),t=vv('mwt'),ac=vv('mac'),b=parseFloat(vv('mwb'))||0;
   if(!n)return alert('Please enter a wallet name');
   DB.wallets.push({id:uid(),name:n,bank:bk,type:t,acct:ac,currentBalance:b,actualBalance:b,qrImg:null});
   sv();cM();goTo('wallets');
 }
-
 function svFund(){
   const n=vv('mfn'),b=parseFloat(vv('mfb'))||0,wid=vv('mfwlink');
   if(!n)return alert('Please enter a fund name');
   DB.funds.push({id:uid(),name:n,total:b,spent:0,uses:[],linkedWalletId:wid||null});
   sv();cM();goTo('funds');
 }
-
 function svFI(){
-  const a=parseFloat(vv('mfa')),d=vv('mfd');
-  if(!a)return alert('Please enter an amount');
+  const a=parseFloat(vv('mfa')),d=vv('mfd');if(!a)return alert('Please enter an amount');
   const fd=DB.funds.find(x=>x.id==aFund);
-  if(fd){
-    if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
-    fd.total+=a; // Adding to fund increases total, bar stays full or shrinks proportionally
-  }
+  if(fd){if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}fd.total+=a;}
   addTx({type:'income',name:d||'Fund top-up',amount:a,cat:'Fund',walletId:'',walletName:'',note:''});
   cM();goTo('funds');
 }
-
 function svFU(){
-  const a=parseFloat(vv('mfa')),d=vv('mfd');
-  if(!a)return alert('Please enter an amount');
-  const fd=DB.funds.find(x=>x.id==aFund);
-  if(!fd)return;
+  const a=parseFloat(vv('mfa')),d=vv('mfd');if(!a)return alert('Please enter an amount');
+  const fd=DB.funds.find(x=>x.id==aFund);if(!fd)return;
   if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
   const w=fd.linkedWalletId;const wd=w?gW(w):null;
-  fd.spent+=a;
-  if(!fd.uses)fd.uses=[];
-  fd.uses.unshift({amt:a,desc:d||fd.name+' use',date:td(),rawDate:new Date().toISOString()});
+  fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:d||fd.name+' use',date:td(),rawDate:new Date().toISOString()});
   if(wd){wd.currentBalance-=a;wd.actualBalance-=a;}
   addTx({type:'expense',name:d||(fd?fd.name+' use':'Fund use'),amount:a,cat:'Fund',walletId:w||'',walletName:wd?wd.name:'',note:''});
   cM();goTo('funds');
 }
-
 function svTask(){
   const n=vv('mtn'),a=parseFloat(vv('mta'))||0,d=vv('mtd'),freqN=vv('mtfreqn'),freqU=vv('mtfrequ'),w=vv('mtw'),no=vv('mtn2');
   if(!n)return alert('Please enter a task name');
@@ -1696,436 +1409,133 @@ function svTask(){
   DB.tasks.push({id:uid(),name:n,amt:a,due:d,freq,walletId:w,note:no,done:false,rawDate:d?new Date(d).toISOString():new Date().toISOString()});
   sv();cM();goTo('tasks');
 }
-
 function svBor(){
   const n=vv('mbn'),a=parseFloat(vv('mba')),dir=vv('mbd'),w=vv('mbw'),due=vv('mbdue');
   if(!n||!a)return alert('Please fill name and amount');
   const wd=dir==='lent'?gW(w):null;
-  // When I lend: currentBalance decreases (money left my wallet), actualBalance stays (it's still mine, just with someone else)
   if(dir==='lent'&&wd){wd.currentBalance-=a;}
   DB.borrowings.push({id:uid(),name:n,total:a,paid:0,dir,walletId:w,walletName:wd?wd.name:'',due,payments:[]});
   if(dir==='lent'&&wd)addTx({type:'expense',name:'Lent to '+n,amount:a,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing record'});
   cM();goTo('borrowing');
 }
-
 function svPay(){
-  const a=parseFloat(vv('mpa')),w=vv('mpw');
-  if(!a||!w)return alert('Please fill all fields');
+  const a=parseFloat(vv('mpa')),w=vv('mpw');if(!a||!w)return alert('Please fill all fields');
   const b=DB.borrowings.find(x=>x.id===aBorrow);const wd=gW(w);if(!b||!wd)return;
-  const actual=Math.min(a,b.total-b.paid);
-  b.paid+=actual;
-  // FIXED borrowing logic:
-  // When lent: payment received → currentBalance goes up (money comes back), actualBalance unchanged (it was always ours)
-  // When owe: payment sent → currentBalance goes down, actualBalance goes down
-  if(b.dir==='lent'){
-    wd.currentBalance+=actual;
-    // actualBalance does NOT change — that money was always ours, just out on loan
-  } else {
-    wd.currentBalance-=actual;
-    wd.actualBalance-=actual;
-  }
+  const actual=Math.min(a,b.total-b.paid);b.paid+=actual;
+  if(b.dir==='lent'){wd.currentBalance+=actual;}
+  else{wd.currentBalance-=actual;wd.actualBalance-=actual;}
   b.payments.push({amt:actual,date:td(),walletName:wd.name});
   addTx({type:b.dir==='lent'?'income':'expense',name:'Payment '+(b.dir==='lent'?'from':'to')+' '+b.name,amount:actual,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing settlement'});
   cM();goTo('borrowing');
 }
-
 function svRes(){
-  const l=vv('mrl'),g=vv('mrg')||'Uncategorized',r=vv('mrr'),t=vv('mrt');
-  if(!l)return alert('Please enter a label');
+  const l=vv('mrl'),g=vv('mrg')||'Uncategorized',r=vv('mrr'),t=vv('mrt');if(!l)return alert('Please enter a label');
   const inp=document.getElementById('mri');const file=inp&&inp.files[0];
   if(file){const rd=new FileReader();rd.onload=e=>{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:e.target.result});sv();cM();goTo('resources');};rd.readAsDataURL(file);}
   else{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:null});sv();cM();goTo('resources');}
 }
-
 function svBonus(){
-  const n=vv('mbon'),a=parseFloat(vv('mbona')),w=vv('mbonw');
-  if(!n||!a||!w)return alert('Please fill all fields');
-  const wd=gW(w);if(!wd)return;
-  wd.currentBalance+=a;wd.actualBalance+=a;
+  const n=vv('mbon'),a=parseFloat(vv('mbona')),w=vv('mbonw');if(!n||!a||!w)return alert('Please fill all fields');
+  const wd=gW(w);if(!wd)return;wd.currentBalance+=a;wd.actualBalance+=a;
   DB.bonuses.push({id:uid(),name:n,amt:a,date:td(),uses:[],_showUses:false});
   addTx({type:'income',name:'Bonus: '+n,amount:a,cat:'Bonus',walletId:w,walletName:wd.name,note:''});
   sv();cM();goTo('bonuses');
 }
-
 function svBU(){
-  const a=parseFloat(vv('mbua')),d=vv('mbud'),w=vv('mbuw');
-  if(!a||!w)return alert('Please fill all fields');
+  const a=parseFloat(vv('mbua')),d=vv('mbud'),w=vv('mbuw');if(!a||!w)return alert('Please fill all fields');
   const b=DB.bonuses.find(x=>x.id==aBonus);const wd=gW(w);if(!b||!wd)return;
-  b.uses.push({amt:a,desc:d||'Bonus use',date:td()});
-  wd.currentBalance-=a;wd.actualBalance-=a;
+  b.uses.push({amt:a,desc:d||'Bonus use',date:td()});wd.currentBalance-=a;wd.actualBalance-=a;
   addTx({type:'expense',name:d||'Bonus use',amount:a,cat:'Bonus',walletId:w,walletName:wd.name,note:'From bonus: '+b.name});
   sv();cM();goTo('bonuses');
 }
-
 function svQR(){
-  const inp=document.getElementById('mqrf');const file=inp&&inp.files[0];
-  const w=DB.wallets.find(x=>x.id===aWalQR);
+  const inp=document.getElementById('mqrf');const file=inp&&inp.files[0];const w=DB.wallets.find(x=>x.id===aWalQR);
   if(!file||!w)return alert('Please select an image first');
   const r=new FileReader();r.onload=e=>{w.qrImg=e.target.result;sv();cM();goTo('wallets');};r.readAsDataURL(file);
 }
-
 function svGroup(){
   const n=vv('mgn');if(!n)return alert('Please enter a group name');
-  const tmplId=vv('mtmpl');
-  let transfers=[];
-  if(tmplId){
-    const tmpl=DB.transferGroups.find(x=>x.id===tmplId);
-    if(tmpl){
-      // Clone transfers from template, reset transferred/done status
-      transfers=tmpl.transfers.map(t=>({...t,id:uid(),transferred:false,done:false}));
-    }
-  }
+  const tmplId=vv('mtmpl');let transfers=[];
+  if(tmplId){const tmpl=DB.transferGroups.find(x=>x.id===tmplId);if(tmpl){transfers=tmpl.transfers.map(t=>({...t,id:uid(),transferred:false,done:false}));}}
   DB.transferGroups.push({id:uid(),name:n,transfers,isTemplate:false,createdAt:new Date().toISOString()});
   sv();cM();goTo('transfers');
 }
-
 function svXI(){
   const title=vv('mxtitle'),fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno'),fundId=vv('mxfund');
-  if(!title||!fr||!to||!a)return alert('Please fill title, wallets, and amount');
-  if(fr===to)return alert('From and To must be different wallets');
+  if(!title||!fr||!to||!a)return alert('Please fill title, wallets, and amount');if(fr===to)return alert('From and To must be different wallets');
   const g=DB.transferGroups.find(x=>x.id===aTG);if(!g)return;
   g.transfers.push({id:uid(),title,fromId:fr,toId:to,amount:a,note:no,fundId:fundId||null,transferred:false,done:false});
   sv();cM();goTo('transfers');
 }
-
-// ═══════════════════════════════════════════════
-// SWIPE TO DELETE ENGINE
-// ═══════════════════════════════════════════════
-let swipeState={};
-
-function swipeStart(e,wrapperId){
-  const t=e.touches[0];
-  swipeState[wrapperId]={startX:t.clientX,startY:t.clientY,moved:0,active:true};
-}
-
-function swipeMove(e,wrapperId){
-  const s=swipeState[wrapperId];if(!s||!s.active)return;
-  const t=e.touches[0];
-  const dx=t.clientX-s.startX;
-  const dy=Math.abs(t.clientY-s.startY);
-  if(dy>20&&Math.abs(dx)<20){s.active=false;return;}
-  if(dx>=0)return;
-  s.moved=dx;
-  // Try direct id first (wallets), then child .swipe-item (funds)
-  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
-  if(el){el.style.transform=`translateX(${Math.max(dx,-100)}px)`;el.style.transition='none';}
-  e.preventDefault();
-}
-
-function swipeEnd(e,wrapperId,deleteFn,deleteId,gid){
-  const s=swipeState[wrapperId];if(!s)return;
-  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
-  if(!s.active||!el){if(el){el.style.transform='';el.style.transition='';}return;}
-  if(s.moved<-70){
-    el.style.transform='translateX(-100%)';
-    el.style.transition='transform .2s';
-    setTimeout(()=>{
-      if(deleteFn==='deleteFund'){
-        pendingConfirm={type:'fund',id:deleteId};
-      } else if(deleteFn==='deleteWallet'){
-        const w=DB.wallets.find(x=>x.id===deleteId);
-        pendingConfirm={type:'wallet',id:deleteId,name:w?w.name:'this wallet'};
-      } else if(deleteFn==='deleteCreditCard'){
-        const cc=DB.creditCards.find(x=>x.id===deleteId);
-        pendingConfirm={type:'creditCard',id:deleteId,name:cc?cc.name:'this card'};
-      } else if(deleteFn==='deleteResource'){
-        const res=DB.resources.find(x=>x.id===deleteId);
-        pendingConfirm={type:'resource',id:deleteId,name:res?res.label:'this resource'};
-      } else {
-        pendingConfirm={type:'xfer',id:deleteId,gid:gid};
-      }
-      AM='deleteConfirm';
-      render();
-    },200);
-  } else {
-    el.style.transform='';
-    el.style.transition='transform .2s';
-  }
-  swipeState[wrapperId]={};
-}
-
-function saveLinkFundWallet(){
-  const wid=vv('mfwlink');
-  const fd=DB.funds.find(x=>x.id==aFund);
-  if(!fd)return;
-  fd.linkedWalletId=wid||null;
-  sv();cM();showToast('Wallet linked');goTo('funds');
-}
-
-function confirmDeleteFund(){
-  const pc=pendingConfirm;
-  DB.funds=DB.funds.filter(x=>x.id!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Fund deleted');goTo('funds');
-}
-
-function confirmDeleteXfer(){
-  const pc=pendingConfirm;
-  const g=DB.transferGroups.find(x=>x.id===pc.gid);
-  if(g){g.transfers=g.transfers.filter(x=>x.id!==pc.id);}
-  pendingConfirm=null;AM=null;sv();showToast('Transfer deleted');render();
-}
-
-function confirmDeleteWallet(){
-  const pc=pendingConfirm;
-  DB.wallets=DB.wallets.filter(x=>x.id!==pc.id);
-  // Also remove transactions for that wallet
-  DB.transactions=DB.transactions.filter(x=>x.walletId!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Wallet deleted');goTo('wallets');
-}
-
-function confirmDeleteCreditCard(){
-  const pc=pendingConfirm;
-  DB.creditCards=DB.creditCards.filter(x=>x.id!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Credit card removed');goTo('wallets');
-}
-
 function svToSpend(){
-  const label=vv('tslabel')||'Monthly Income';
-  const base=parseFloat(vv('tsbase'))||0;
-  DB.toSpend={base,label};
-  sv();cM();showToast('To Spend updated');goTo('home');
+  const label=vv('tslabel')||'Monthly Income';const base=parseFloat(vv('tsbase'))||0;
+  DB.toSpend={base,label};sv();cM();showToast('To Spend updated');goTo('home');
 }
-
 function svCreditCard(){
   const n=vv('ccn');if(!n)return alert('Please enter a card name');
-  const limit=parseFloat(vv('cclimit'))||0;
-  const used=parseFloat(vv('ccused'))||0;
+  const limit=parseFloat(vv('cclimit'))||0;const used=parseFloat(vv('ccused'))||0;
   DB.creditCards.push({id:uid(),name:n,bank:vv('ccbk')||'Other',acct:vv('ccac'),limit,used,charges:[],createdAt:new Date().toISOString()});
   sv();cM();showToast('Credit card added');goTo('wallets');
 }
-
 function svCCCharge(){
   const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
   const desc=vv('cccdesc');const amt=parseFloat(vv('cccamt'));const cat=vv('cccat');
   if(!desc||!amt)return alert('Please fill in description and amount');
   if(amt>cc.limit-cc.used)return alert('Exceeds available credit');
-  cc.used+=amt;
-  if(!cc.charges)cc.charges=[];
+  cc.used+=amt;if(!cc.charges)cc.charges=[];
   cc.charges.unshift({id:uid(),desc,amt,cat,date:td(),rawDate:new Date().toISOString()});
-  // Also log as expense in transactions (no wallet deduction — credit card)
   addTx({type:'expense',name:desc+'[CC:'+cc.name+']',amount:amt,cat:cat,walletId:null,walletName:cc.name,note:'Charged to credit card'});
   sv();cM();showToast('Charge recorded');goTo('wallets');
 }
-
 function svCCPay(){
   const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
   const amt=parseFloat(vv('ccpamt'));const wid=vv('ccpwallet');
   if(!amt||!wid)return alert('Please fill in amount and wallet');
-  const wd=gW(wid);if(!wd)return;
-  if(amt>wd.currentBalance)return alert('Insufficient wallet balance');
-  wd.currentBalance-=amt;wd.actualBalance-=amt;
-  cc.used=Math.max(0,cc.used-amt);
+  const wd=gW(wid);if(!wd)return;if(amt>wd.currentBalance)return alert('Insufficient wallet balance');
+  wd.currentBalance-=amt;wd.actualBalance-=amt;cc.used=Math.max(0,cc.used-amt);
   addTx({type:'expense',name:'CC Payment: '+cc.name,amount:amt,cat:'Bills',walletId:wid,walletName:wd.name,note:'Credit card bill payment'});
   sv();cM();showToast('Payment recorded');goTo('wallets');
 }
 
-// ═══════════════════════════════════════════════
-// NOTES SCREEN
-// ═══════════════════════════════════════════════
-function bNotes(){
-  if(!DB.notes)DB.notes=[];
-  return `<div class="screen">
-    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Notes</span><span class="abi" onclick="addNote()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
-    <div class="ct">
-      ${DB.notes.length?DB.notes.map((n,i)=>`<div class="card" style="border-radius:16px;padding:14px 16px">
-        <!-- Note header -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <input value="${esc(n.title)}" onchange="DB.notes[${i}].title=this.value;sv()"
-            style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--text);flex:1;outline:none;padding:0"
-            placeholder="Note title">
-          <button onclick="noteToggleCollapse(${i})"
-            style="background:#f0f0f0;color:#666;border:none;border-radius:7px;font-size:11px;padding:4px 8px;cursor:pointer;font-weight:600;white-space:nowrap">
-            ${n.collapsed?'▼ Show':'▲ Hide'}
-          </button>
-          <button onclick="pendingConfirm={type:'note',idx:${i}};AM='deleteConfirm';render()"
-            style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:16px;width:28px;height:28px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
-        </div>
-        ${n.collapsed?'':`
-        <!-- Note body -->
-          <div id="note-body-${i}" contenteditable="true"
-          oninput="DB.notes[${i}].body=this.innerHTML;sv();this.classList.toggle('empty',this.textContent.trim()==='')"
-          onkeydown="noteKeyDown(event,${i})"
-          style="font-size:13px;color:#222;min-height:60px;outline:none;line-height:1.7;padding:8px;background:#f9f9f9;border-radius:10px;margin-bottom:10px"
-          class="${!n.body||n.body===''?'empty':''}"
-          data-ph="Start typing..."
-          >${n.body||''}</div>
-        <!-- Formatting toolbar -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button onclick="noteFormat(${i},'bold')"
-            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-weight:700;color:#222">B</button>
-          <button onclick="noteFormat(${i},'italic')"
-            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-style:italic;color:#222">I</button>
-          <button onclick="noteFormat(${i},'underline')"
-            style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;text-decoration:underline;color:#222">U</button>
-          <button onclick="noteAddCheckbox(${i})"
-            style="padding:0 10px;height:30px;border:none;border-radius:7px;background:#EAF3DE;color:#27500A;font-size:12px;cursor:pointer;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Add item</button>
-        </div>
-        <div style="font-size:10px;color:#ccc;margin-top:8px">${esc(n.date||'')}</div>`}
-      </div>`).join(''):`<div style="text-align:center;font-size:13px;color:var(--sub);padding:32px 16px">
-        <div style="color:#ccc;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 12h8M8 16h5"/></svg></div>
-        No notes yet.<br>Tap ＋ to create your first note.
-      </div>`}
-    </div>
-    ${nav()}
-  </div>`;
-}
-
-function addNote(){
-  if(!DB.notes)DB.notes=[];
-  DB.notes.unshift({id:uid(),title:'',body:'',date:td(),collapsed:false});
-  sv();goTo('notes');
-}
-
-function noteFormat(i,cmd){
-  const el=document.getElementById('note-body-'+i);
-  if(el){el.focus();document.execCommand(cmd,false,null);DB.notes[i].body=el.innerHTML;sv();}
-}
-
-function noteAddCheckbox(i){
-  const el=document.getElementById('note-body-'+i);
-  if(!el)return;
-  // Strip trailing BRs, whitespace-only text nodes, and zero-width space nodes
-  while(el.lastChild){
-    const lc=el.lastChild;
-    if(lc.nodeName==='BR'){el.removeChild(lc);continue;}
-    if(lc.nodeType===3&&lc.textContent.replace(/\u200B/g,'').trim()===''){el.removeChild(lc);continue;}
-    break;
-  }
-  _appendCheckboxRow(el,i,'');
-  DB.notes[i].body=el.innerHTML;sv();
-}
-
-function _appendCheckboxRow(el,i,text){
-  const wrap=document.createElement('div');
-  wrap.className='cb-row';
-  wrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
-  const cb=document.createElement('input');
-  cb.type='checkbox';
-  cb.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0';
-  const sp=document.createElement('span');
-  sp.contentEditable='true';
-  sp.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';
-  sp.setAttribute('data-cbrow','1');
-  if(text)sp.textContent=text;
-  cb.addEventListener('change',function(){
-    sp.style.textDecoration=this.checked?'line-through':'none';
-    sp.style.color=this.checked?'#bbb':'#222';
-    const noteEl=document.getElementById('note-body-'+i);
-    if(noteEl){DB.notes[i].body=noteEl.innerHTML;sv();}
-  });
-  wrap.appendChild(cb);
-  wrap.appendChild(sp);
-  el.appendChild(wrap);
-  // Place cursor at start of the text span (after the checkbox, not on it)
-  sp.focus();
-  const r=document.createRange();
-  r.setStart(sp,0);
-  r.collapse(true);
-  const s=window.getSelection();
-  s.removeAllRanges();
-  s.addRange(r);
-}
-
-function noteToggleCollapse(i){
-  if(!DB.notes[i])return;
-  DB.notes[i].collapsed=!DB.notes[i].collapsed;sv();render();
-}
-
-function noteKeyDown(e,i){
-  if(e.key!=='Enter')return;
+let swipeState={};
+function swipeStart(e,wrapperId){const t=e.touches[0];swipeState[wrapperId]={startX:t.clientX,startY:t.clientY,moved:0,active:true};}
+function swipeMove(e,wrapperId){
+  const s=swipeState[wrapperId];if(!s||!s.active)return;
+  const t=e.touches[0];const dx=t.clientX-s.startX;const dy=Math.abs(t.clientY-s.startY);
+  if(dy>20&&Math.abs(dx)<20){s.active=false;return;}
+  if(dx>=0)return;s.moved=dx;
+  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
+  if(el){el.style.transform=`translateX(${Math.max(dx,-100)}px)`;el.style.transition='none';}
   e.preventDefault();
-  const sel=window.getSelection();
-  if(!sel.rangeCount)return;
-  const range=sel.getRangeAt(0);
-  const el=document.getElementById('note-body-'+i);
-
-  // Check if cursor is inside a checkbox span
-  let node=sel.anchorNode;
-  let cbRow=null;
-  while(node&&node!==el){
-    if(node.classList&&node.classList.contains('cb-row')){cbRow=node;break;}
-    node=node.parentNode;
-  }
-
-  if(cbRow){
-    const sp=cbRow.querySelector('span[data-cbrow]');
-    const text=sp?sp.textContent.replace(/\u200B/g,'').trim():'';
-    // Always add a new checkbox below — whether empty or not
-    // (removing on empty was causing items to disappear unexpectedly)
-    const next=cbRow.nextSibling;
-    const newWrap=document.createElement('div');
-    newWrap.className='cb-row';
-    newWrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
-    const cb2=document.createElement('input');
-    cb2.type='checkbox';
-    cb2.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0;vertical-align:middle';
-    const sp2=document.createElement('span');
-    sp2.contentEditable='true';
-    sp2.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';
-    sp2.setAttribute('data-cbrow','1');
-    cb2.addEventListener('change',function(){
-      sp2.style.textDecoration=this.checked?'line-through':'none';
-      sp2.style.color=this.checked?'#bbb':'#222';
-      if(el){DB.notes[i].body=el.innerHTML;sv();}
-    });
-    newWrap.appendChild(cb2);
-    newWrap.appendChild(sp2);
-    el.insertBefore(newWrap,next||null);
-    sp2.focus();
-    const r3=document.createRange();
-    r3.setStart(sp2,0);
-    r3.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(r3);
-  } else {
-    // Normal text area — insert BR + zero-width space, cursor stays left
-    range.deleteContents();
-    const br=document.createElement('br');
-    const zws=document.createTextNode('\u200B');
-    range.insertNode(zws);
-    range.insertNode(br);
-    range.setStartAfter(zws);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-
-  if(el){DB.notes[i].body=el.innerHTML;sv();}
+}
+function swipeEnd(e,wrapperId,deleteFn,deleteId,gid){
+  const s=swipeState[wrapperId];if(!s)return;
+  const el=document.getElementById(wrapperId)||document.querySelector('#'+wrapperId+' .swipe-item');
+  if(!s.active||!el){if(el){el.style.transform='';el.style.transition='';}return;}
+  if(s.moved<-70){
+    el.style.transform='translateX(-100%)';el.style.transition='transform .2s';
+    setTimeout(()=>{
+      if(deleteFn==='deleteFund'){pendingConfirm={type:'fund',id:deleteId};}
+      else if(deleteFn==='deleteWallet'){const w=DB.wallets.find(x=>x.id===deleteId);pendingConfirm={type:'wallet',id:deleteId,name:w?w.name:'this wallet'};}
+      else if(deleteFn==='deleteCreditCard'){const cc=DB.creditCards.find(x=>x.id===deleteId);pendingConfirm={type:'creditCard',id:deleteId,name:cc?cc.name:'this card'};}
+      else if(deleteFn==='deleteResource'){const res=DB.resources.find(x=>x.id===deleteId);pendingConfirm={type:'resource',id:deleteId,name:res?res.label:'this resource'};}
+      else{pendingConfirm={type:'xfer',id:deleteId,gid:gid};}
+      AM='deleteConfirm';render();
+    },200);
+  } else {el.style.transform='';el.style.transition='transform .2s';}
+  swipeState[wrapperId]={};
 }
 
+function saveLinkFundWallet(){const wid=vv('mfwlink');const fd=DB.funds.find(x=>x.id==aFund);if(!fd)return;fd.linkedWalletId=wid||null;sv();cM();showToast('Wallet linked');goTo('funds');}
+function confirmDeleteFund(){const pc=pendingConfirm;DB.funds=DB.funds.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Fund deleted');goTo('funds');}
+function confirmDeleteXfer(){const pc=pendingConfirm;const g=DB.transferGroups.find(x=>x.id===pc.gid);if(g){g.transfers=g.transfers.filter(x=>x.id!==pc.id);}pendingConfirm=null;AM=null;sv();showToast('Transfer deleted');render();}
+function confirmDeleteWallet(){const pc=pendingConfirm;DB.wallets=DB.wallets.filter(x=>x.id!==pc.id);DB.transactions=DB.transactions.filter(x=>x.walletId!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Wallet deleted');goTo('wallets');}
+function confirmDeleteCreditCard(){const pc=pendingConfirm;DB.creditCards=DB.creditCards.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Credit card removed');goTo('wallets');}
+function confirmDeleteGroup(){const pc=pendingConfirm;DB.transferGroups=DB.transferGroups.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Group deleted');goTo('transfers');}
+function confirmDeleteTask(){const pc=pendingConfirm;DB.tasks=DB.tasks.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Task deleted');render();}
+function confirmDeleteNote(){const pc=pendingConfirm;if(DB.notes)DB.notes.splice(pc.idx,1);pendingConfirm=null;AM=null;sv();render();}
+function setDefaultWallet(){const sel=document.getElementById('mfr');if(!sel)return;defaultFromWalletId=sel.value;sv();showToast('Default wallet set');oM('addxfer');}
 
-// ── DELETE FUNCTIONS ─────────────────────────────────────────────────────────
-function confirmDeleteGroup(){
-  const pc=pendingConfirm;
-  DB.transferGroups=DB.transferGroups.filter(x=>x.id!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Group deleted');goTo('transfers');
-}
-
-function confirmDeleteTask(){
-  const pc=pendingConfirm;
-  DB.tasks=DB.tasks.filter(x=>x.id!==pc.id);
-  pendingConfirm=null;AM=null;sv();showToast('Task deleted');render();
-}
-
-function confirmDeleteNote(){
-  const pc=pendingConfirm;
-  if(DB.notes)DB.notes.splice(pc.idx,1);
-  pendingConfirm=null;AM=null;sv();render();
-}
-
-function setDefaultWallet(){
-  const sel=document.getElementById('mfr');
-  if(!sel)return;
-  defaultFromWalletId=sel.value;
-  sv();
-  showToast('Default wallet set');
-  // Re-render the modal to show star on correct option
-  oM('addxfer');
-}
-
-// ═══════════════════════════════════════════════
-// CSV EXPORT
-// ═══════════════════════════════════════════════
 function xCSV(){
   const h=['Date','Description','Category','Type','Wallet','Amount (₱)','Notes'];
   const rows=DB.transactions.map(t=>[t.date,t.name,t.cat||'',t.type,t.walletName,t.type==='expense'?'-'+t.amount:'+'+t.amount,t.note||''].map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(','));
@@ -2135,14 +1545,73 @@ function xCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='FinTrack_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
-// ═══════════════════════════════════════════════
-// CLOCK
-// ═══════════════════════════════════════════════
+function bNotes(){
+  if(!DB.notes)DB.notes=[];
+  return `<div class="screen">
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Notes</span><span class="abi" onclick="addNote()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ct">
+      ${DB.notes.length?DB.notes.map((n,i)=>`<div class="card" style="border-radius:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input value="${esc(n.title)}" onchange="DB.notes[${i}].title=this.value;sv()" style="font-size:15px;font-weight:700;border:none;background:transparent;color:var(--text);flex:1;outline:none;padding:0" placeholder="Note title">
+          <button onclick="noteToggleCollapse(${i})" style="background:#f0f0f0;color:#666;border:none;border-radius:7px;font-size:11px;padding:4px 8px;cursor:pointer;font-weight:600;white-space:nowrap">${n.collapsed?'▼ Show':'▲ Hide'}</button>
+          <button onclick="pendingConfirm={type:'note',idx:${i}};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:16px;width:28px;height:28px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+        </div>
+        ${n.collapsed?'':`
+          <div id="note-body-${i}" contenteditable="true"
+            oninput="DB.notes[${i}].body=this.innerHTML;sv();this.classList.toggle('empty',this.textContent.trim()==='')"
+            onkeydown="noteKeyDown(event,${i})"
+            style="font-size:13px;color:#222;min-height:60px;outline:none;line-height:1.7;padding:8px;background:#f9f9f9;border-radius:10px;margin-bottom:10px"
+            class="${!n.body||n.body===''?'empty':''}" data-ph="Start typing..."
+          >${n.body||''}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="noteFormat(${i},'bold')" style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-weight:700;color:#222">B</button>
+            <button onclick="noteFormat(${i},'italic')" style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;font-style:italic;color:#222">I</button>
+            <button onclick="noteFormat(${i},'underline')" style="width:32px;height:30px;border:none;border-radius:7px;background:#f0f0f0;font-size:13px;cursor:pointer;text-decoration:underline;color:#222">U</button>
+            <button onclick="noteAddCheckbox(${i})" style="padding:0 10px;height:30px;border:none;border-radius:7px;background:#EAF3DE;color:#27500A;font-size:12px;cursor:pointer;font-weight:600">✓ Add item</button>
+          </div>
+          <div style="font-size:10px;color:#ccc;margin-top:8px">${esc(n.date||'')}</div>`}
+      </div>`).join(''):`<div style="text-align:center;font-size:13px;color:var(--sub);padding:32px 16px">No notes yet.<br>Tap ＋ to create your first note.</div>`}
+    </div>
+    ${nav()}
+  </div>`;
+}
 
+function addNote(){if(!DB.notes)DB.notes=[];DB.notes.unshift({id:uid(),title:'',body:'',date:td(),collapsed:false});sv();goTo('notes');}
+function noteFormat(i,cmd){const el=document.getElementById('note-body-'+i);if(el){el.focus();document.execCommand(cmd,false,null);DB.notes[i].body=el.innerHTML;sv();}}
+function noteToggleCollapse(i){if(!DB.notes[i])return;DB.notes[i].collapsed=!DB.notes[i].collapsed;sv();render();}
+function noteAddCheckbox(i){
+  const el=document.getElementById('note-body-'+i);if(!el)return;
+  while(el.lastChild){const lc=el.lastChild;if(lc.nodeName==='BR'){el.removeChild(lc);continue;}if(lc.nodeType===3&&lc.textContent.replace(/\u200B/g,'').trim()===''){el.removeChild(lc);continue;}break;}
+  _appendCheckboxRow(el,i,'');DB.notes[i].body=el.innerHTML;sv();
+}
+function _appendCheckboxRow(el,i,text){
+  const wrap=document.createElement('div');wrap.className='cb-row';wrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
+  const cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0';
+  const sp=document.createElement('span');sp.contentEditable='true';sp.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';sp.setAttribute('data-cbrow','1');
+  if(text)sp.textContent=text;
+  cb.addEventListener('change',function(){sp.style.textDecoration=this.checked?'line-through':'none';sp.style.color=this.checked?'#bbb':'#222';const noteEl=document.getElementById('note-body-'+i);if(noteEl){DB.notes[i].body=noteEl.innerHTML;sv();}});
+  wrap.appendChild(cb);wrap.appendChild(sp);el.appendChild(wrap);
+  sp.focus();const r=document.createRange();r.setStart(sp,0);r.collapse(true);const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+}
+function noteKeyDown(e,i){
+  if(e.key!=='Enter')return;e.preventDefault();
+  const sel=window.getSelection();if(!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);const el=document.getElementById('note-body-'+i);
+  let node=sel.anchorNode;let cbRow=null;
+  while(node&&node!==el){if(node.classList&&node.classList.contains('cb-row')){cbRow=node;break;}node=node.parentNode;}
+  if(cbRow){
+    const next=cbRow.nextSibling;const newWrap=document.createElement('div');newWrap.className='cb-row';newWrap.style.cssText='display:flex;align-items:center;gap:8px;margin:1px 0';
+    const cb2=document.createElement('input');cb2.type='checkbox';cb2.style.cssText='flex-shrink:0;width:15px;height:15px;cursor:pointer;margin:0;vertical-align:middle';
+    const sp2=document.createElement('span');sp2.contentEditable='true';sp2.style.cssText='flex:1;outline:none;font-size:13px;line-height:1.5;color:#222;min-width:4px;display:inline-block';sp2.setAttribute('data-cbrow','1');
+    cb2.addEventListener('change',function(){sp2.style.textDecoration=this.checked?'line-through':'none';sp2.style.color=this.checked?'#bbb':'#222';if(el){DB.notes[i].body=el.innerHTML;sv();}});
+    newWrap.appendChild(cb2);newWrap.appendChild(sp2);el.insertBefore(newWrap,next||null);
+    sp2.focus();const r3=document.createRange();r3.setStart(sp2,0);r3.collapse(true);sel.removeAllRanges();sel.addRange(r3);
+  } else {
+    range.deleteContents();const br=document.createElement('br');const zws=document.createTextNode('\u200B');range.insertNode(zws);range.insertNode(br);range.setStartAfter(zws);range.collapse(true);sel.removeAllRanges();sel.addRange(range);
+  }
+  if(el){DB.notes[i].body=el.innerHTML;sv();}
+}
 
-// ═══════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════
 initAuth();
 </script>
 </body>
