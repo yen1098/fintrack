@@ -81,18 +81,23 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 @media(min-width:768px){
   body{background:#e8eaed;overflow:auto}
   #app{max-width:100%;flex-direction:row;height:100vh;background:#e8eaed}
-  #desktop-sidebar{width:240px;min-width:240px;background:#1a1a2e;display:flex;flex-direction:column;padding:28px 0 20px;flex-shrink:0;height:100vh;position:sticky;top:0}
-  #desktop-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f0f2f5;max-width:none}
+  #desktop-sidebar{width:220px;min-width:220px;background:#1a1a2e;display:flex;flex-direction:column;padding:28px 0 20px;flex-shrink:0;height:100vh;position:sticky;top:0}
+  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#f0f2f5}
   #sh{flex:1;overflow:hidden}
+  #desktop-right{width:220px;min-width:220px;padding:20px 14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex-shrink:0}
+  #desktop-right::-webkit-scrollbar{display:none}
   .bn{display:none!important}
   .modal{max-width:480px;border-radius:20px}
   .overlay{align-items:center}
-  .ct{padding:20px 28px;gap:12px;max-width:860px}
+  .ct{padding:20px 20px;gap:12px}
   .screen{max-width:none}
-  .ab .abi:first-child svg path[d="M15 18l-6-6 6-6"]{display:none}
-  /* On desktop hide back-arrow buttons, keep + add buttons */
   .ab>span.abi:first-of-type{display:none}
 }
+/* Hide scrollbars everywhere but keep scrollable */
+.ct{scrollbar-width:none;-ms-overflow-style:none}
+.ct::-webkit-scrollbar{display:none}
+.modal{scrollbar-width:none;-ms-overflow-style:none}
+.modal::-webkit-scrollbar{display:none}
 #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);background:rgba(30,30,30,0.92);color:#fff;padding:18px 28px;border-radius:20px;font-size:15px;font-weight:600;text-align:center;z-index:999;opacity:0;pointer-events:none;transition:all .25s;backdrop-filter:blur(4px)}
 #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .confirm-box{background:var(--white);border-radius:20px;padding:24px 20px;width:300px;text-align:center}
@@ -226,8 +231,9 @@ function showApp(){
   if(isDesktop()&&!document.getElementById('desktop-sidebar')){
     app.innerHTML=`
       <div id="desktop-sidebar"></div>
-      <div id="desktop-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div id="desktop-main" style="flex:1;display:flex;flex-direction:row;overflow:hidden">
         <div id="sh" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+        <div id="desktop-right"></div>
         <div id="mh"></div>
       </div>`;
   }
@@ -422,6 +428,54 @@ const SVGMAP={
   eyeoff:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
 };
 
+function renderDesktopRight(){
+  const panel=document.getElementById('desktop-right');
+  if(!panel)return;
+  const due=tasksDueSoon();
+  const tot=DB.wallets.reduce((s,w)=>s+w.currentBalance,0);
+  const toSpendVal=calcToSpend();
+  const tsColor=toSpendVal>=0?'#3B6D11':'#E24B4A';
+  panel.innerHTML=`
+    <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.6px;margin-bottom:2px;margin-top:4px">QUICK ACTIONS</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="oM('expense')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="width:32px;height:32px;border-radius:9px;background:#FCEBEB;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#791F1F" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">Expense</span>
+      </button>
+      <button onclick="oM('income')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="width:32px;height:32px;border-radius:9px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">Income</span>
+      </button>
+      <button onclick="oM('qtransfer')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="width:32px;height:32px;border-radius:9px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">Transfer</span>
+      </button>
+      <button onclick="goTo('tasks')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative">
+        <div style="width:32px;height:32px;border-radius:9px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>${due>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">${due}</span>`:''}</div>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">Tasks</span>
+        ${due>0?`<span style="margin-left:auto;font-size:11px;color:#E24B4A;font-weight:600">${due} due</span>`:''}
+      </button>
+    </div>
+    <div style="height:.5px;background:rgba(0,0,0,.08);margin:8px 0"></div>
+    <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.6px;margin-bottom:8px">SUMMARY</div>
+    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:2px">TOTAL BALANCE</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px">${balHidden?'₱ ••••••':f$(tot)}</div>
+    </div>
+    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:2px">TO SPEND</div>
+      <div style="font-size:20px;font-weight:700;color:${tsColor};letter-spacing:-.5px">${balHidden?'₱ ••••':toSpendVal<0?'−'+f$(Math.abs(toSpendVal)):f$(toSpendVal)}</div>
+      <button onclick="oM('toSpendSettings')" style="margin-top:6px;padding:3px 9px;background:${toSpendVal>=0?'#EAF3DE':'#FCEBEB'};color:${toSpendVal>=0?'#27500A':'#791F1F'};border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">set budget</button>
+    </div>
+    ${DB.wallets.length?`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px;margin-bottom:8px">WALLETS</div>
+      ${DB.wallets.map(w=>{const cl=BC[w.bank]||BC.Other;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:.5px solid rgba(0,0,0,.05)">
+        <div style="display:flex;align-items:center;gap:7px"><div style="width:7px;height:7px;border-radius:50%;background:${cl[0]}"></div><span style="font-size:12px;color:#444">${esc(w.name)}</span></div>
+        <span style="font-size:12px;font-weight:600;color:var(--text)">${balHidden?'••••':f$(w.currentBalance)}</span>
+      </div>`;}).join('')}
+    </div>`:''}`;
+}
+
 function goTo(s){CS=s;render();}
 function render(){
   const screens={home:bHome,wallets:bWallets,funds:bFunds,transfers:bTransfers,more:bMore,tasks:bTasks,borrowing:bBorrow,resources:bRes,bonuses:bBonus,ledger:bLedger,notes:bNotes};
@@ -431,6 +485,7 @@ function render(){
   const ctNew=document.querySelector('.ct');
   if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
   if(isDesktop())renderDesktopSidebar();
+  if(isDesktop())renderDesktopRight();
   const mhEl=document.getElementById('mh');
   if(AM==='confirm'||AM==='deleteConfirm'){
     mhEl.innerHTML=AM==='confirm'?bConfirmModal():bModal('deleteConfirm');
@@ -553,7 +608,7 @@ function bHome(){
         ${txAll.length>homeTxLimit?`<button onclick="homeTxLimit+=10;render()" style="width:100%;padding:8px;margin-top:6px;background:var(--bg);color:var(--blue2);border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Show more (${txAll.length-homeTxLimit} remaining)</button>`:''}
       </div>
     </div>
-    <div style="position:absolute;bottom:56px;left:0;right:0;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:5">
+    <div style="position:absolute;bottom:56px;left:0;right:0;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:5;display:${isDesktop()?'none':'block'}">
       <div class="qa">
         <div class="qab" onclick="oM('expense')"><div class="qai" style="background:#FCEBEB"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><div class="qal">Expense</div></div>
         <div class="qab" onclick="oM('income')"><div class="qai" style="background:#EAF3DE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="qal">Income</div></div>
@@ -699,13 +754,17 @@ function bFunds(){
         <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Swipe left to delete a fund</div>
         ${DB.funds.length?DB.funds.map(fd=>{
           const remaining=Math.max(0,fd.total-fd.spent);
-          const remainPct=fd.total>0?Math.max(0,Math.min(100,Math.round(remaining/fd.total*100))):0;
+          const goal=fd.goal||0;
+          // Bar: if goal set, show remaining vs goal. If no goal, full bar.
+          const goalPct=goal>0?Math.max(0,Math.min(100,Math.round(remaining/goal*100))):100;
           let barC='#3B6D11';
-          if(remainPct<20)barC='#E24B4A';
-          else if(remainPct<50)barC='#EF9F27';
+          if(goal>0){
+            if(goalPct<20)barC='#E24B4A';
+            else if(goalPct<50)barC='#EF9F27';
+          }
           let bc='bok',badgeTxt=f$(remaining)+' left';
           if(remaining<=0){bc='bd';badgeTxt='Empty';}
-          else if(remainPct<50){bc='bw';badgeTxt=f$(remaining)+' left';}
+          else if(goal>0&&goalPct<50){bc='bw';}
           const uses=fd.uses||[];
           const r3=uses.filter(u=>new Date(u.rawDate||0)>=t3);
           const ay=uses.filter(u=>new Date(u.rawDate||0)>=ty);
@@ -716,23 +775,25 @@ function bFunds(){
               ontouchstart="swipeStart(event,'fw-${fd.id}')"
               ontouchmove="swipeMove(event,'fw-${fd.id}')"
               ontouchend="swipeEnd(event,'fw-${fd.id}','deleteFund','${fd.id}')">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
                 <div>
                   <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(fd.name)}</span>
                   ${fd.linkedWalletId&&gW(fd.linkedWalletId)?`<div style="font-size:10px;color:var(--sub);margin-top:1px">Linked: ${esc(gW(fd.linkedWalletId).name)}</div>`:'<div style="font-size:10px;color:#E24B4A;margin-top:1px">No wallet linked</div>'}
                 </div>
-                <span style="font-size:12px;color:#555">${f$(remaining)} / ${f$(fd.total)}</span>
+                <div style="text-align:right">
+                  <div style="font-size:18px;font-weight:700;color:${barC};letter-spacing:-.5px">${f$(remaining)}</div>
+                  ${goal>0?`<div style="font-size:10px;color:var(--sub)">of ${f$(goal)} goal · ${goalPct}%</div>`:'<div style="font-size:10px;color:var(--sub)">no goal set</div>'}
+                </div>
               </div>
-              <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden">
-                <div style="width:${remainPct}%;height:8px;border-radius:99px;background:${barC};transition:width .3s"></div>
+              <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
+                <div style="width:${goalPct}%;height:8px;border-radius:99px;background:${barC};transition:width .3s"></div>
               </div>
-              <div style="font-size:10px;color:var(--sub);margin-top:3px">${remainPct}% remaining · ${f$(fd.spent)} used of ${f$(fd.total)} saved</div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
                 <span class="badge ${bc}">${badgeTxt}</span>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                   <button style="padding:6px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('fundincome')">＋ Add</button>
                   <button style="padding:6px 10px;background:#FAECE7;color:#712B13;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('funduse')">− Use</button>
-                  <button style="padding:6px 10px;background:#E6F1FB;color:#0C447C;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('linkfundwallet')">Link wallet</button>
+                  <button style="padding:6px 10px;background:#E6F1FB;color:#0C447C;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('setfundgoal')">⊙ Goal</button>
                 </div>
               </div>
               ${uses.length?`<div style="margin-top:10px">
@@ -1139,7 +1200,14 @@ async function shareQR(){
     else{const a=document.createElement('a');a.href=img;a.download=(src.label||src.name||'qr')+'.png';a.click();}
   }catch(e){console.log('Share cancelled');}
 }
-function confirmDeleteResource(){const pc=pendingConfirm;DB.resources=DB.resources.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Resource deleted');goTo('resources');}
+function confirmDeleteResource(){
+  const pc=pendingConfirm;
+  const res=DB.resources.find(x=>x.id===pc.id);
+  const groupName=res?res.group||'Uncategorized':null;
+  DB.resources=DB.resources.filter(x=>x.id!==pc.id);
+  // If that was the last resource in the group, nothing extra needed — group auto-disappears since bRes builds groups dynamically
+  pendingConfirm=null;AM=null;sv();showToast('Resource deleted');goTo('resources');
+}
 
 function bBonus(){
   const tot=DB.bonuses.reduce((s,b)=>s+b.amt,0);
@@ -1172,7 +1240,7 @@ function bBonus(){
 
 function oM(n,x){
   AM=n;
-  if(n==='fundincome'||n==='funduse')aFund=x||aFund;
+  if(n==='fundincome'||n==='funduse'||n==='setfundgoal'||n==='linkfundwallet')aFund=x||aFund;
   if(n==='bonususe')aBonus=x||aBonus;
   if(n==='payment')aBorrow=x||aBorrow;
   if(n==='addxfer')aTG=x||aTG;
@@ -1228,8 +1296,17 @@ function bModal(name){
       return W('Add Fund Envelope',`
       <div class="field"><label>Fund name *</label><input id="mfn" type="text" placeholder="e.g. Groceries" autocomplete="off"></div>
       <div class="field"><label>Starting amount (₱)</label><input id="mfb" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Goal amount (₱) — bar fills toward this</label><input id="mfgoal" type="number" inputmode="decimal" placeholder="e.g. 5000"></div>
       <div class="field"><label>Link to wallet (auto-deducted on Use)</label><select id="mfwlink"><option value="">— none —</option>${wLink}</select></div>
       <button class="btnp" onclick="svFund()">Create fund</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'setfundgoal':{
+      const fd=DB.funds.find(x=>x.id==aFund);
+      return W('Set Fund Goal',`
+      <div style="font-size:13px;color:var(--blue2);font-weight:600;margin-bottom:12px">${fd?esc(fd.name):''}</div>
+      <div class="field"><label>Goal amount (₱)</label><input id="mfgoalinp" type="number" inputmode="decimal" placeholder="e.g. 5000" value="${fd&&fd.goal?fd.goal:''}"></div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:12px">The progress bar will fill as your remaining balance approaches this goal. Leave blank to remove goal.</div>
+      <button class="btnp" onclick="svFundGoal()">Save goal</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
     case 'allXferSummary':{
       const wNet={};let grandXferTotal=0;let pendingCount=0;
@@ -1486,10 +1563,17 @@ function svWal(){
   sv();cM();goTo('wallets');
 }
 function svFund(){
-  const n=vv('mfn'),b=parseFloat(vv('mfb'))||0,wid=vv('mfwlink');
+  const n=vv('mfn'),b=parseFloat(vv('mfb'))||0,wid=vv('mfwlink'),goal=parseFloat(vv('mfgoal'))||0;
   if(!n)return alert('Please enter a fund name');
-  DB.funds.push({id:uid(),name:n,total:b,spent:0,uses:[],linkedWalletId:wid||null});
+  DB.funds.push({id:uid(),name:n,total:b,spent:0,uses:[],linkedWalletId:wid||null,goal:goal||null});
   sv();cM();goTo('funds');
+}
+
+function svFundGoal(){
+  const fd=DB.funds.find(x=>x.id==aFund);if(!fd)return;
+  const goal=parseFloat(vv('mfgoalinp'))||0;
+  fd.goal=goal||null;
+  sv();cM();showToast('Goal saved');goTo('funds');
 }
 function svFI(){
   const a=parseFloat(vv('mfa')),d=vv('mfd');if(!a)return alert('Please enter an amount');
@@ -1722,3 +1806,4 @@ initAuth();
 </script>
 </body>
 </html>
+
