@@ -84,7 +84,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   #desktop-sidebar{width:220px;min-width:220px;background:#1a1a2e;display:flex;flex-direction:column;padding:28px 0 20px;flex-shrink:0;height:100vh;position:sticky;top:0}
   #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#f0f2f5}
   #sh{flex:1;overflow:hidden}
-  #desktop-right{width:220px;min-width:220px;padding:20px 14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex-shrink:0}
+  #desktop-right{width:230px;min-width:230px;padding:20px 14px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;border-left:.5px solid rgba(0,0,0,.07)}
   #desktop-right::-webkit-scrollbar{display:none}
   .bn{display:none!important}
   .modal{max-width:480px;border-radius:20px}
@@ -431,49 +431,102 @@ const SVGMAP={
 function renderDesktopRight(){
   const panel=document.getElementById('desktop-right');
   if(!panel)return;
-  const due=tasksDueSoon();
-  const tot=DB.wallets.reduce((s,w)=>s+w.currentBalance,0);
-  const toSpendVal=calcToSpend();
-  const tsColor=toSpendVal>=0?'#3B6D11':'#E24B4A';
+
+  // Tasks — pending only
+  const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+3);
+  const pendingTasks=DB.tasks.filter(t=>!t.done);
+  const showLimit=5;
+  const visibleTasks=pendingTasks.slice(0,showLimit);
+
+  // Pending transfer group items
+  const pendingXfers=[];
+  DB.transferGroups.forEach(g=>{
+    g.transfers.forEach(t=>{
+      if(!t.transferred){
+        const fw=gW(t.fromId);const tw=gW(t.toId);
+        pendingXfers.push({title:t.title,amount:t.amount,from:fw?fw.name:'?',to:tw?tw.name:'?',gname:g.name});
+      }
+    });
+  });
+
   panel.innerHTML=`
-    <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.6px;margin-bottom:2px;margin-top:4px">QUICK ACTIONS</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button onclick="oM('expense')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="width:32px;height:32px;border-radius:9px;background:#FCEBEB;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#791F1F" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
-        <span style="font-size:13px;font-weight:600;color:var(--text)">Expense</span>
-      </button>
-      <button onclick="oM('income')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="width:32px;height:32px;border-radius:9px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-        <span style="font-size:13px;font-weight:600;color:var(--text)">Income</span>
-      </button>
-      <button onclick="oM('qtransfer')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        <div style="width:32px;height:32px;border-radius:9px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
-        <span style="font-size:13px;font-weight:600;color:var(--text)">Transfer</span>
-      </button>
-      <button onclick="goTo('tasks')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative">
-        <div style="width:32px;height:32px;border-radius:9px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>${due>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">${due}</span>`:''}</div>
-        <span style="font-size:13px;font-weight:600;color:var(--text)">Tasks</span>
-        ${due>0?`<span style="margin-left:auto;font-size:11px;color:#E24B4A;font-weight:600">${due} due</span>`:''}
-      </button>
+    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:16px">
+
+      ${pendingTasks.length||pendingXfers.length?`
+      <!-- REMINDERS -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px;margin-bottom:8px;padding:0 2px">REMINDERS</div>
+
+        ${pendingTasks.length?`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+          <div style="padding:10px 13px 4px;border-bottom:.5px solid rgba(0,0,0,.05)">
+            <div style="font-size:11px;font-weight:700;color:#0C447C;display:flex;align-items:center;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Tasks
+            </div>
+          </div>
+          ${visibleTasks.map(t=>{
+            const isDue=t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now;
+            const isOverdue=t.due&&new Date(t.due)<now;
+            return `<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 13px;border-bottom:.5px solid rgba(0,0,0,.04)">
+              <div onclick="dTask('${t.id}')" style="width:15px;height:15px;border-radius:4px;border:1.5px solid ${isOverdue?'#E24B4A':isDue?'#EF9F27':'#ccc'};flex-shrink:0;margin-top:1px;cursor:pointer"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+                <div style="font-size:10px;color:${isOverdue?'#E24B4A':isDue?'#EF9F27':'var(--sub)'};margin-top:1px;font-weight:${isOverdue||isDue?'600':'400'}">${t.due||'No due date'}${t.amt>0?' · '+f$(t.amt):''}</div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${pendingTasks.length>showLimit?`<div onclick="goTo('tasks')" style="padding:8px 13px;font-size:11px;color:var(--blue2);font-weight:600;cursor:pointer;text-align:center">+${pendingTasks.length-showLimit} more tasks →</div>`:''}
+          ${pendingTasks.length===0?`<div style="padding:10px 13px;font-size:12px;color:var(--sub)">All clear!</div>`:''}
+        </div>`:''}
+
+        ${pendingXfers.length?`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-top:8px">
+          <div style="padding:10px 13px 4px;border-bottom:.5px solid rgba(0,0,0,.05)">
+            <div style="font-size:11px;font-weight:700;color:#5B21B6;display:flex;align-items:center;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg>
+              Pending Transfers
+            </div>
+          </div>
+          ${pendingXfers.slice(0,5).map(x=>`<div style="padding:8px 13px;border-bottom:.5px solid rgba(0,0,0,.04)">
+            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.title)}</div>
+            <div style="font-size:10px;color:var(--sub);margin-top:1px">${f$(x.amount)} · ${esc(x.from)} → ${esc(x.to)}</div>
+          </div>`).join('')}
+          ${pendingXfers.length>5?`<div onclick="goTo('transfers')" style="padding:8px 13px;font-size:11px;color:#5B21B6;font-weight:600;cursor:pointer;text-align:center">+${pendingXfers.length-5} more →</div>`:''}
+        </div>`:''}
+      </div>`:''}
+
+      ${!pendingTasks.length&&!pendingXfers.length?`<div style="background:#fff;border-radius:14px;padding:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="font-size:22px;margin-bottom:4px">✓</div>
+        <div style="font-size:12px;font-weight:600;color:#3B6D11">All clear!</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:2px">No pending tasks or transfers</div>
+      </div>`:''}
+
     </div>
-    <div style="height:.5px;background:rgba(0,0,0,.08);margin:8px 0"></div>
-    <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.6px;margin-bottom:8px">SUMMARY</div>
-    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:2px">TOTAL BALANCE</div>
-      <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px">${balHidden?'₱ ••••••':f$(tot)}</div>
-    </div>
-    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:2px">TO SPEND</div>
-      <div style="font-size:20px;font-weight:700;color:${tsColor};letter-spacing:-.5px">${balHidden?'₱ ••••':toSpendVal<0?'−'+f$(Math.abs(toSpendVal)):f$(toSpendVal)}</div>
-      <button onclick="oM('toSpendSettings')" style="margin-top:6px;padding:3px 9px;background:${toSpendVal>=0?'#EAF3DE':'#FCEBEB'};color:${toSpendVal>=0?'#27500A':'#791F1F'};border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">set budget</button>
-    </div>
-    ${DB.wallets.length?`<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px;margin-bottom:8px">WALLETS</div>
-      ${DB.wallets.map(w=>{const cl=BC[w.bank]||BC.Other;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:.5px solid rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:7px"><div style="width:7px;height:7px;border-radius:50%;background:${cl[0]}"></div><span style="font-size:12px;color:#444">${esc(w.name)}</span></div>
-        <span style="font-size:12px;font-weight:600;color:var(--text)">${balHidden?'••••':f$(w.currentBalance)}</span>
-      </div>`;}).join('')}
-    </div>`:''}`;
+
+    <!-- QUICK ACTIONS pinned at bottom -->
+    <div style="border-top:.5px solid rgba(0,0,0,.08);padding-top:14px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px;margin-bottom:2px;padding:0 2px">QUICK ACTIONS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <button onclick="oM('expense')" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:28px;height:28px;border-radius:8px;background:#FCEBEB;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#791F1F" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:var(--text)">Expense</span>
+        </button>
+        <button onclick="oM('income')" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:var(--text)">Income</span>
+        </button>
+        <button onclick="oM('qtransfer')" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:28px;height:28px;border-radius:8px;background:#EDE9FE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:var(--text)">Transfer</span>
+        </button>
+        <button onclick="goTo('tasks')" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative">
+          <div style="width:28px;height:28px;border-radius:8px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;position:relative">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            ${pendingTasks.filter(t=>t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now).length>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:8px;font-weight:700;border-radius:99px;padding:1px 4px">${pendingTasks.filter(t=>t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now).length}</span>`:''}
+          </div>
+          <span style="font-size:11px;font-weight:600;color:var(--text)">Tasks</span>
+        </button>
+      </div>
+    </div>`;
 }
 
 function goTo(s){CS=s;render();}
@@ -529,8 +582,18 @@ function txR(t){
 function calcToSpend(){
   let ts=DB.toSpend.base;
   DB.transactions.forEach(t=>{
-    if(t.type==='expense'&&t.cat!=='Transfer'&&t.cat!=='Fund'&&t.walletId!==null&&!(t.name&&t.name.includes('[CC:'))&&t.note!=='Borrowing record'&&t.note!=='Borrowing settlement')ts-=t.amount;
+    // Add income (except fund top-ups, bonuses already counted in base, and transfers)
+    if(t.type==='income' && t.cat!=='Transfer' && t.cat!=='Fund' && t.cat!=='Bonus'){
+      ts+=t.amount;
+    }
+    // Deduct only manual expenses — not fund use, not CC charges, not transfers, not borrowing
+    if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null
+      && !(t.name&&t.name.includes('[CC:'))
+      && t.note!=='Borrowing record' && t.note!=='Borrowing settlement'){
+      ts-=t.amount;
+    }
   });
+  // Deduct ALL transfer group items (committed allocations)
   DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{ts-=t.amount;});});
   return ts;
 }
