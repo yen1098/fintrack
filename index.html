@@ -884,8 +884,8 @@ function bFunds(){
               <div style="background:#e0e0e0;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
                 <div style="width:${goalPct}%;height:8px;border-radius:99px;background:${barC};transition:width .3s"></div>
               </div>
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <span class="badge ${bc}">${badgeTxt}</span>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+                <button style="padding:6px 10px;background:#F3F0FF;color:#5B21B6;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('linkfundwallet')">⊕ Link wallet</button>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                   <button style="padding:6px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('fundincome')">＋ Add</button>
                   <button style="padding:6px 10px;background:#FAECE7;color:#712B13;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600" onclick="aFund='${fd.id}';oM('funduse')">− Use</button>
