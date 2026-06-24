@@ -395,20 +395,22 @@ const vv=id=>{const e=document.getElementById(id);return e?e.value:'';};
 const gW=id=>DB.wallets.find(x=>x.id===id);
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// Undo history — stores DB snapshots before each action
-let undoStack=[];
-const MAX_UNDO=20;
-function pushUndo(){
-  undoStack.push(JSON.stringify(DB));
-  if(undoStack.length>MAX_UNDO)undoStack.shift();
-}
-function undoLast(){
-  if(!undoStack.length)return showToast('Nothing to undo');
-  DB=JSON.parse(undoStack.pop());
-  sv();showToast('Undone ↩');render();
+// Per-transaction undo — snapshot stored ON the transaction itself
+function addTx(o){
+  // Snapshot DB state (minus any existing snapshots to avoid bloat)
+  const snap=JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val);
+  const tx={id:uid(),rawDate:new Date().toISOString(),...o,date:td(),_snap:snap};
+  DB.transactions.unshift(tx);
+  sv();
 }
 
-function addTx(o){pushUndo();DB.transactions.unshift({id:uid(),rawDate:new Date().toISOString(),...o,date:td()});sv();}
+function undoTx(txId){
+  const tx=DB.transactions.find(x=>x.id===txId);
+  if(!tx||!tx._snap){return showToast('No undo data for this transaction');}
+  if(!confirm('Undo this transaction? All wallet/fund balances will revert to before this action.'))return;
+  DB=JSON.parse(tx._snap);
+  sv();showToast('Transaction undone ↩');render();
+}
 
 function showToast(msg='✓ Done!',emoji=''){
   const el=document.getElementById('toast');
@@ -474,7 +476,6 @@ function renderDesktopRight(){
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px">RECENT LOG</div>
-          ${undoStack.length>0?`<button onclick="undoLast()" style="display:flex;align-items:center;gap:4px;padding:3px 9px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5.5 7 12 5 18 8"/></svg> Undo</button>`:''}
         </div>
         <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
           ${recentTx.length?recentTx.map(t=>{
@@ -486,7 +487,10 @@ function renderDesktopRight(){
                 <div style="font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
                 <div style="font-size:10px;color:var(--sub)">${esc(t.date)}${t.walletName?' · '+esc(t.walletName):''}</div>
               </div>
-              <div style="font-size:11px;font-weight:700;color:${isExp?'#E24B4A':'#3B6D11'};flex-shrink:0">${isExp?'−':'+'}${f$(t.amount)}</div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
+                <div style="font-size:11px;font-weight:700;color:${isExp?'#E24B4A':'#3B6D11'}">${isExp?'−':'+'}${f$(t.amount)}</div>
+                ${t._snap?`<button onclick="undoTx('${t.id}')" style="padding:2px 7px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer">↩ undo</button>`:''}
+              </div>
             </div>`;
           }).join(''):`<div style="padding:14px;font-size:12px;color:var(--sub);text-align:center">No transactions yet</div>`}
         </div>
@@ -595,19 +599,23 @@ function nav(){
   </div>`;
 }
 
-function txR(t){
+function txR(t,showUndo=false){
   const C={Food:['#EAF3DE','food'],Utilities:['#FCEBEB','bolt'],Transport:['#E6F1FB','car'],Shopping:['#EAF3DE','cart'],Bills:['#FCEBEB','receipt'],Entertainment:['#EEEDFE','film'],Fund:['#FAEEDA','stack'],Bonus:['#FAEEDA','star'],Transfer:['#EDE9FE','exchange'],Other:['#f0f0f0','other']};
   const c=C[t.cat]||C.Other;
   const ac=t.cat==='Transfer'?'xfer':t.type==='expense'?'neg':'pos';
   const as=t.type==='expense'?'−':'+';
-  return `<div class="tr">
+  const canUndo=showUndo&&t._snap;
+  return `<div class="tr" style="${canUndo?'flex-wrap:wrap;':''}">
     <div class="ticon" style="background:${c[0]};color:#555">${SVGMAP[c[1]]||''}</div>
     <div style="flex:1;min-width:0">
       <div class="tn">${esc(t.name)}</div>
       <div class="td">${esc(t.date)}${t.walletName?' · '+esc(t.walletName):''}</div>
       ${t.note?`<div class="td" style="font-style:italic;color:#bbb">${esc(t.note)}</div>`:''}
     </div>
-    <div class="ta ${ac}" style="white-space:nowrap;margin-left:6px">${as}${f$(t.amount)}</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:6px">
+      <div class="ta ${ac}" style="white-space:nowrap">${as}${f$(t.amount)}</div>
+      ${canUndo?`<button onclick="undoTx('${t.id}')" style="padding:2px 8px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">↩ undo</button>`:''}
+    </div>
   </div>`;
 }
 
@@ -700,7 +708,7 @@ function bHome(){
       </div>
       <div class="card">
         <div class="slbl">Recent Transactions</div>
-        ${txVisible.length?txVisible.map(txR).join(''):'<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No transactions yet</div>'}
+        ${txVisible.length?txVisible.map((t,i)=>txR(t,i<10)).join(''):'<div style="font-size:12px;color:var(--sub);text-align:center;padding:14px">No transactions yet</div>'}
         ${txAll.length>homeTxLimit?`<button onclick="homeTxLimit+=10;render()" style="width:100%;padding:8px;margin-top:6px;background:var(--bg);color:var(--blue2);border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Show more (${txAll.length-homeTxLimit} remaining)</button>`:''}
       </div>
     </div>
@@ -1132,10 +1140,6 @@ function bMore(){
           <span style="color:#ccc;font-size:18px">›</span>
         </div>`).join('')}
       </div>
-      ${undoStack.length>0?`<div class="card" style="padding:14px 16px">
-        <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Last action can be reversed</div>
-        <button onclick="undoLast()" style="width:100%;padding:11px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5.5 7 12 5 18 8"/></svg>Undo last action</button>
-      </div>`:''}
       <div class="card" style="padding:14px 16px">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="acctCollapsed=!acctCollapsed;render()">
           <div>
@@ -1667,7 +1671,6 @@ function bModal(name){
 function pF(inp,prev){const f=document.getElementById(inp).files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};r.readAsDataURL(f);}
 
 function svExp(){
-  pushUndo();
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
   const wd=gW(w);if(!wd)return;
@@ -1677,7 +1680,6 @@ function svExp(){
   cM();goTo('home');
 }
 function svInc(){
-  pushUndo();
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc')||'Other',w=vv('mw'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
   const wd=gW(w);if(!wd)return;wd.currentBalance+=a;wd.actualBalance+=a;
@@ -1719,7 +1721,6 @@ function svFI(){
   cM();goTo('funds');
 }
 function svFU(){
-  pushUndo();
   const a=parseFloat(vv('mfa')),d=vv('mfd');if(!a)return alert('Please enter an amount');
   const fd=DB.funds.find(x=>x.id==aFund);if(!fd)return;
   if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
