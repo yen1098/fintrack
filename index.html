@@ -1395,7 +1395,7 @@ function bModal(name){
 
       <!-- Split bill toggle -->
       <div style="border:.5px solid rgba(0,0,0,.1);border-radius:12px;padding:12px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="document.getElementById('split-section').style.display=document.getElementById('split-section').style.display==='none'?'block':'none';this.querySelector('.split-chevron').textContent=document.getElementById('split-section').style.display==='none'?'▼':'▲'">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSplitSection()">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
             <span style="font-size:13px;font-weight:600;color:var(--text)">Split bill</span>
@@ -1410,33 +1410,7 @@ function bModal(name){
         </div>
       </div>
 
-      <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>
-      <script>
-      function addSplitPerson(){
-        const c=document.getElementById('split-people');
-        const i=Date.now();
-        const d=document.createElement('div');
-        d.id='sp-'+i;
-        d.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
-        d.innerHTML='<input type="text" placeholder="Name (e.g. Ate)" style="flex:1;font-size:13px;padding:8px 10px;border:.5px solid rgba(0,0,0,.2);border-radius:9px;background:#f8f8f8" class="split-name" oninput="updateSplitCalc()">'
-          +'<button type="button" onclick="document.getElementById(\'sp-'+i+'\').remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#791F1F;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">×</button>';
-        c.appendChild(d);
-        updateSplitCalc();
-      }
-      function updateSplitCalc(){
-        const amt=parseFloat(document.getElementById('ma').value)||0;
-        const names=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
-        const total=names.length+1;
-        const calc=document.getElementById('split-calc');
-        if(amt>0&&names.length>0){
-          const each=Math.round((amt/total)*100)/100;
-          calc.style.display='block';
-          calc.textContent='₱'+amt.toLocaleString()+' ÷ '+total+' people = ₱'+each.toLocaleString()+' each · You pay ₱'+each.toLocaleString()+', '+names.join(' & ')+' owe the rest';
-        } else {
-          calc.style.display='none';
-        }
-      }
-      <\/script>`);
+      <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'income': return W('Add Income',`
       <div class="field"><label>Description *</label><input id="mn" type="text" placeholder="e.g. Salary" autocomplete="off"></div>
@@ -1723,6 +1697,46 @@ function bModal(name){
 }
 
 function pF(inp,prev){const f=document.getElementById(inp).files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};r.readAsDataURL(f);}
+
+function addSplitPerson(){
+  const c=document.getElementById('split-people');
+  if(!c)return;
+  const i=Date.now();
+  const d=document.createElement('div');
+  d.id='sp-'+i;
+  d.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
+  d.innerHTML='<input type="text" placeholder="Name (e.g. Ate)" style="flex:1;font-size:13px;padding:8px 10px;border:.5px solid rgba(0,0,0,.2);border-radius:9px;background:#f8f8f8" class="split-name" oninput="updateSplitCalc()">'
+    +'<button type="button" onclick="this.parentElement.remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#791F1F;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">×</button>';
+  c.appendChild(d);
+  d.querySelector('input').focus();
+  updateSplitCalc();
+}
+
+function updateSplitCalc(){
+  const amtEl=document.getElementById('ma');
+  const calcEl=document.getElementById('split-calc');
+  if(!amtEl||!calcEl)return;
+  const amt=parseFloat(amtEl.value)||0;
+  const names=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
+  const count=document.querySelectorAll('.split-name').length;
+  const total=count+1;
+  if(amt>0&&count>0){
+    const each=(amt/total).toFixed(2);
+    calcEl.style.display='block';
+    calcEl.textContent='₱'+amt.toLocaleString()+' ÷ '+total+' people = ₱'+parseFloat(each).toLocaleString()+' each'+(names.length>0?' · '+names.join(', ')+' will owe ₱'+parseFloat(each).toLocaleString()+' each':'');
+  } else {
+    calcEl.style.display='none';
+  }
+}
+
+function toggleSplitSection(){
+  const sec=document.getElementById('split-section');
+  const chev=document.querySelector('.split-chevron');
+  if(!sec)return;
+  const open=sec.style.display==='none'||sec.style.display==='';
+  sec.style.display=open?'block':'none';
+  if(chev)chev.textContent=open?'▲':'▼';
+}
 
 function svExp(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
