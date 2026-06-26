@@ -1750,10 +1750,10 @@ function svExp(){
   const myShare=isSplit?Math.round((a/totalPeople)*100)/100:a;
   const theirShare=isSplit?Math.round((a/totalPeople)*100)/100:0;
 
-  // Deduct only my share from wallet
-  wd.currentBalance-=myShare;wd.actualBalance-=myShare;
+  // Deduct FULL amount from wallet (you paid for everyone upfront)
+  wd.currentBalance-=a;wd.actualBalance-=a;
 
-  // Charge to fund (my share only)
+  // Charge to fund (my share only — their share comes back via borrowing)
   if(fi){
     const fd=DB.funds.find(x=>x.id===fi);
     if(fd){
@@ -1764,12 +1764,14 @@ function svExp(){
     }
   }
 
-  // Log expense (my share)
+  // Log my share as expense (this affects To Spend)
   addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:w,walletName:wd.name,note:no+(isSplit?' · Split '+totalPeople+' ways':'')});
 
-  // Create borrowing records for each person
+  // Create borrowing records + log lent amounts (wallet already fully deducted above)
   if(isSplit){
     splitNames.forEach(personName=>{
+      // Log the lent portion as a transfer-out (walletId:null so it doesn't affect To Spend again)
+      addTx({type:'expense',name:'Lent for split: '+n+' ('+personName+')',amount:theirShare,cat:'Other',walletId:null,walletName:wd.name,note:'Lent — split bill'});
       DB.borrowings.push({
         id:uid(),
         name:personName,
@@ -1782,8 +1784,6 @@ function svExp(){
         payments:[],
         note:'Split bill: '+n
       });
-      // Log as expense for the amount lent (NOT deducted from wallet — already excluded via borrowing record)
-      addTx({type:'expense',name:'Split: '+n+' ('+personName+'\'s share)',amount:theirShare,cat:c,walletId:null,walletName:personName,note:'Lent — split bill'});
     });
     showToast('Expense split '+totalPeople+' ways ✓');
   }
