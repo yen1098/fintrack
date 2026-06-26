@@ -1377,12 +1377,56 @@ function bModal(name){
   switch(name){
     case 'expense': return W('Add Expense',`
       <div class="field"><label>Item / description *</label><input id="mn" type="text" placeholder="e.g. SM Supermarket" autocomplete="off"></div>
-      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0" oninput="updateSplitCalc()"></div>
       <div class="field"><label>Category</label><select id="mc"><option>Food</option><option>Utilities</option><option>Transport</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Other</option></select></div>
       <div class="field"><label>From wallet *</label><select id="mw">${wO||'<option value="">Add a wallet first</option>'}</select></div>
       <div class="field"><label>Charge to fund (optional)</label><select id="mf">${fO}</select></div>
       <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
-      <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
+
+      <!-- Split bill toggle -->
+      <div style="border:.5px solid rgba(0,0,0,.1);border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="document.getElementById('split-section').style.display=document.getElementById('split-section').style.display==='none'?'block':'none';this.querySelector('.split-chevron').textContent=document.getElementById('split-section').style.display==='none'?'▼':'▲'">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
+            <span style="font-size:13px;font-weight:600;color:var(--text)">Split bill</span>
+          </div>
+          <span class="split-chevron" style="color:#ccc;font-size:13px">▼</span>
+        </div>
+        <div id="split-section" style="display:none;margin-top:12px">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Add the people splitting this bill with you. The amount is divided equally.</div>
+          <div id="split-people"></div>
+          <button type="button" onclick="addSplitPerson()" style="width:100%;padding:8px;background:#f0f0f0;color:#555;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:10px">＋ Add person</button>
+          <div id="split-calc" style="background:#EAF3DE;border-radius:9px;padding:10px;font-size:12px;color:#27500A;font-weight:600;text-align:center;display:none"></div>
+        </div>
+      </div>
+
+      <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>
+      <script>
+      function addSplitPerson(){
+        const c=document.getElementById('split-people');
+        const i=Date.now();
+        const d=document.createElement('div');
+        d.id='sp-'+i;
+        d.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
+        d.innerHTML='<input type="text" placeholder="Name (e.g. Ate)" style="flex:1;font-size:13px;padding:8px 10px;border:.5px solid rgba(0,0,0,.2);border-radius:9px;background:#f8f8f8" class="split-name" oninput="updateSplitCalc()">'
+          +'<button type="button" onclick="document.getElementById(\'sp-'+i+'\').remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#791F1F;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">×</button>';
+        c.appendChild(d);
+        updateSplitCalc();
+      }
+      function updateSplitCalc(){
+        const amt=parseFloat(document.getElementById('ma').value)||0;
+        const names=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
+        const total=names.length+1;
+        const calc=document.getElementById('split-calc');
+        if(amt>0&&names.length>0){
+          const each=Math.round((amt/total)*100)/100;
+          calc.style.display='block';
+          calc.textContent='₱'+amt.toLocaleString()+' ÷ '+total+' people = ₱'+each.toLocaleString()+' each · You pay ₱'+each.toLocaleString()+', '+names.join(' & ')+' owe the rest';
+        } else {
+          calc.style.display='none';
+        }
+      }
+      <\/script>`);
 
     case 'income': return W('Add Income',`
       <div class="field"><label>Description *</label><input id="mn" type="text" placeholder="e.g. Salary" autocomplete="off"></div>
@@ -1674,10 +1718,53 @@ function svExp(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
   const wd=gW(w);if(!wd)return;
-  wd.currentBalance-=a;wd.actualBalance-=a;
-  if(fi){const fd=DB.funds.find(x=>x.id===fi);if(fd){if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:n,date:td(),rawDate:new Date().toISOString()});}}
-  addTx({type:'expense',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
-  cM();goTo('home');
+
+  // Check for split people
+  const splitNames=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
+  const isSplit=splitNames.length>0;
+  const totalPeople=isSplit?splitNames.length+1:1;
+  const myShare=isSplit?Math.round((a/totalPeople)*100)/100:a;
+  const theirShare=isSplit?Math.round((a/totalPeople)*100)/100:0;
+
+  // Deduct only my share from wallet
+  wd.currentBalance-=myShare;wd.actualBalance-=myShare;
+
+  // Charge to fund (my share only)
+  if(fi){
+    const fd=DB.funds.find(x=>x.id===fi);
+    if(fd){
+      if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+      fd.spent+=myShare;
+      if(!fd.uses)fd.uses=[];
+      fd.uses.unshift({amt:myShare,desc:n+(isSplit?' (my share)':''),date:td(),rawDate:new Date().toISOString()});
+    }
+  }
+
+  // Log expense (my share)
+  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:w,walletName:wd.name,note:no+(isSplit?' · Split '+totalPeople+' ways':'')});
+
+  // Create borrowing records for each person
+  if(isSplit){
+    splitNames.forEach(personName=>{
+      DB.borrowings.push({
+        id:uid(),
+        name:personName,
+        total:theirShare,
+        paid:0,
+        dir:'lent',
+        walletId:w,
+        walletName:wd.name,
+        due:'',
+        payments:[],
+        note:'Split bill: '+n
+      });
+      // Log as expense for the amount lent (NOT deducted from wallet — already excluded via borrowing record)
+      addTx({type:'expense',name:'Split: '+n+' ('+personName+'\'s share)',amount:theirShare,cat:c,walletId:null,walletName:personName,note:'Lent — split bill'});
+    });
+    showToast('Expense split '+totalPeople+' ways ✓');
+  }
+
+  sv();cM();goTo('home');
 }
 function svInc(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc')||'Other',w=vv('mw'),no=vv('mno');
