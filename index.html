@@ -290,8 +290,16 @@ function showLogin(){
   document.getElementById('app').style.display='none';
 }
 
+// Strip _snap fields before persisting — snaps are memory-only
+function dbForStorage(){
+  return JSON.parse(JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val));
+}
+
 function sv(){
-  try{localStorage.setItem('fintrack2',JSON.stringify(DB));localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');}catch(e){}
+  try{
+    localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
+    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
+  }catch(e){console.log('localStorage save error:',e);}
   const ind=document.getElementById('sync-indicator');
   const lbl=document.getElementById('sync-label');
   if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
@@ -307,7 +315,7 @@ function sv(){
 async function saveToCloud(){
   if(!currentUser)return;
   try{
-    const payload=JSON.stringify({db:DB,defaultWallet:defaultFromWalletId});
+    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId});
     await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload},{onConflict:'user_id'});
   }catch(e){console.log('Cloud save error:',e);}
 }
@@ -395,12 +403,14 @@ const vv=id=>{const e=document.getElementById(id);return e?e.value:'';};
 const gW=id=>DB.wallets.find(x=>x.id===id);
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// Per-transaction undo — snapshot stored ON the transaction itself
+// Per-transaction undo — snapshot stored ON the transaction itself (memory only, not persisted)
 function addTx(o){
-  // Snapshot DB state (minus any existing snapshots to avoid bloat)
+  // Snapshot current DB state (without any existing snaps to keep it lean)
   const snap=JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val);
   const tx={id:uid(),rawDate:new Date().toISOString(),...o,date:td(),_snap:snap};
   DB.transactions.unshift(tx);
+  // Only keep _snap on the 10 most recent transactions — clear the rest
+  DB.transactions.forEach((t,i)=>{if(i>=10)delete t._snap;});
   sv();
 }
 
