@@ -168,7 +168,7 @@ let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],
 let CS='home', AM=null;
 let hwExp=false,hwDet=null,ewId=null,wMore={},resCollapsed={};
 let fhExp={},fhFull={},tgExp={},lf='all';
-let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null;
+let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null,aChargeId=null;
 let tgMonthFilter='all';
 let homeTxLimit=10;
 let defaultFromWalletId=null;
@@ -798,6 +798,10 @@ function bWallets(){
           const usedPct=cc.limit>0?Math.min(100,Math.round(cc.used/cc.limit*100)):0;
           const barC=usedPct>80?'#E24B4A':usedPct>50?'#EF9F27':'#3B6D11';
           const ccCl=BC[cc.bank]||BC.Other;
+          const charges=cc.charges||[];
+          const unpaid=charges.filter(ch=>(ch.remaining??ch.amt)>0);
+          const paid=charges.filter(ch=>(ch.remaining??ch.amt)<=0);
+          const ccExpanded=!!cc._expanded;
           return `<div style="position:relative;margin-bottom:8px;border-radius:14px;overflow:hidden">
             <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:14px;z-index:0"></div>
             <div class="swipe-item" id="ccw-${cc.id}" style="position:relative;z-index:1;transition:transform .15s;background:#fff;border:.5px solid rgba(0,0,0,.08);border-radius:14px;padding:12px 13px"
@@ -812,7 +816,7 @@ function bWallets(){
               <div style="background:#e0e0e0;border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">
                 <div style="width:${usedPct}%;height:7px;border-radius:99px;background:${barC};transition:width .3s"></div>
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">
                 <div>
                   <span style="font-size:11px;color:var(--sub)">Used: </span><span style="font-size:12px;font-weight:700;color:#E24B4A">${f$(cc.used)}</span>
                   <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${f$(Math.max(0,avail))}</span>
@@ -820,9 +824,46 @@ function bWallets(){
                 </div>
                 <div style="display:flex;gap:5px">
                   <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
-                  <button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Pay bill</button>
+                  <button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>
                 </div>
               </div>
+              <!-- Charges list -->
+              ${charges.length?`
+              <div style="border-top:.5px solid rgba(0,0,0,.07);padding-top:8px">
+                <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:${ccExpanded?'8px':'0'}" onclick="(function(){const c=DB.creditCards.find(x=>x.id==='${cc.id}');if(c){c._expanded=!c._expanded;render();}})()">
+                  <span style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.5px">CHARGES (${charges.length}) · ${unpaid.length} unpaid</span>
+                  <span style="color:#ccc;font-size:12px">${ccExpanded?'▲':'▼'}</span>
+                </div>
+                ${ccExpanded?`
+                ${unpaid.length?`<div style="margin-bottom:6px">
+                  ${unpaid.map(ch=>{
+                    const rem=ch.remaining??ch.amt;
+                    const isPartial=ch.remaining!==undefined&&ch.remaining<ch.amt;
+                    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid rgba(0,0,0,.04)">
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:12px;font-weight:500;color:var(--text)">${esc(ch.desc)}</div>
+                        <div style="font-size:10px;color:var(--sub)">${esc(ch.date)} · ${esc(ch.cat)}</div>
+                        ${isPartial?`<div style="font-size:10px;color:#EF9F27">Partial — ${f$(ch.amt-rem)} paid, ${f$(rem)} left</div>`:''}
+                      </div>
+                      <div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:12px;font-weight:700;color:#E24B4A">${f$(rem)}</div>
+                        <button onclick="aCreditCard='${cc.id}';aChargeId='${ch.id}';oM('ccPayCharge')" style="margin-top:3px;padding:3px 9px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">Pay</button>
+                      </div>
+                    </div>`;
+                  }).join('')}
+                </div>`:''}
+                ${paid.length?`<div style="margin-top:4px">
+                  <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid</div>
+                  ${paid.map(ch=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
+                    <div>
+                      <div style="font-size:11px;color:#aaa;text-decoration:line-through">${esc(ch.desc)}</div>
+                      <div style="font-size:10px;color:#ccc">${esc(ch.date)}</div>
+                    </div>
+                    <span style="font-size:11px;color:#aaa">${f$(ch.amt)}</span>
+                  </div>`).join('')}
+                </div>`:''}
+                `:''}
+              </div>`:''}
             </div>
           </div>`;
         }).join(''):`<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px">No credit cards added</div>`}
@@ -1371,7 +1412,7 @@ function oM(n,x){
   if(n==='payment')aBorrow=x||aBorrow;
   if(n==='addxfer')aTG=x||aTG;
   if(n==='uploadqr'&&x)aWalQR=x;
-  if(n==='ccCharge'||n==='ccPay')aCreditCard=x||aCreditCard;
+  if(n==='ccCharge'||n==='ccPay'||n==='ccPayCharge')aCreditCard=x||aCreditCard;
   render();
 }
 function cM(){AM=null;render();}
@@ -1692,7 +1733,22 @@ function bModal(name){
       <div style="font-size:10px;color:var(--sub);margin-bottom:10px">If both are selected, wallet is used. Fund deducts from its balance and linked wallet.</div>
       <button class="btnp" onclick="svCCPay()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
-    default: return '';
+    case 'ccPayCharge':{
+      const cc=DB.creditCards.find(x=>x.id===aCreditCard);
+      const ch=cc&&(cc.charges||[]).find(x=>x.id===aChargeId);
+      const rem=ch?(ch.remaining??ch.amt):0;
+      const fO2='<option value="">— none —</option>'+DB.funds.map(f=>{const r=Math.max(0,(f.total||0)-(f.spent||0));return `<option value="${f.id}">${esc(f.name)} (${f$(r)} left)</option>`;}).join('');
+      return W('Pay Charge',`
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${ch?esc(ch.desc):''}</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${ch?'Original: '+f$(ch.amt)+' · Remaining: '+f$(rem):''}</div>
+      <div class="field"><label>Amount to pay (₱) *</label><input id="ccpamt" type="number" inputmode="decimal" placeholder="0" max="${rem}" value="${rem}"></div>
+      <div style="background:#f8f8f8;border-radius:12px;padding:12px;margin-bottom:11px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:600">SOURCE — fill at least one</div>
+        <div class="field" style="margin-bottom:8px"><label>Pay from wallet</label><select id="ccpwallet"><option value="">— none —</option>${wO}</select></div>
+        <div style="font-size:11px;color:#bbb;text-align:center;margin-bottom:8px">— or —</div>
+        <div class="field" style="margin-bottom:0"><label>Pull from fund</label><select id="ccpfund">${fO2}</select></div>
+      </div>
+      <button class="btnp" onclick="svCCPayCharge()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
   }
 }
 
@@ -1958,6 +2014,37 @@ function svCCPay(){
   }
 
   sv();cM();showToast('Payment recorded');goTo('wallets');
+}
+
+function svCCPayCharge(){
+  const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
+  const ch=(cc.charges||[]).find(x=>x.id===aChargeId);if(!ch)return;
+  const rem=ch.remaining??ch.amt;
+  const amt=parseFloat(vv('ccpamt'));
+  const wid=vv('ccpwallet');
+  const fid=vv('ccpfund');
+  if(!amt)return alert('Please enter the amount');
+  if(amt>rem)return alert('Amount exceeds remaining balance of '+f$(rem));
+  if(!wid&&!fid)return alert('Please select a wallet or fund to pay from');
+  ch.remaining=Math.round((rem-amt)*100)/100;
+  cc.used=Math.max(0,cc.used-amt);
+  const fullyPaid=ch.remaining<=0;
+  if(wid){
+    const wd=gW(wid);if(!wd)return;
+    if(amt>wd.currentBalance)return alert('Insufficient wallet balance');
+    wd.currentBalance-=amt;wd.actualBalance-=amt;
+    addTx({type:'expense',name:'CC Pay: '+ch.desc+' ('+cc.name+')',amount:amt,cat:'Bills',walletId:wid,walletName:wd.name,note:fullyPaid?'Fully paid':'Partial payment · ₱'+ch.remaining.toLocaleString()+' remaining'});
+  } else {
+    const fd=DB.funds.find(x=>x.id===fid);if(!fd)return;
+    const fdRem=Math.max(0,(fd.total||0)-(fd.spent||0));
+    if(amt>fdRem)return alert('Insufficient fund balance ('+f$(fdRem)+' left)');
+    fd.spent+=amt;if(!fd.uses)fd.uses=[];
+    fd.uses.unshift({amt,desc:'CC Pay: '+ch.desc,date:td(),rawDate:new Date().toISOString()});
+    const wd=fd.linkedWalletId?gW(fd.linkedWalletId):null;
+    if(wd){wd.currentBalance-=amt;wd.actualBalance-=amt;}
+    addTx({type:'expense',name:'CC Pay: '+ch.desc+' ('+cc.name+')',amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'CC payment via fund: '+fd.name+(fullyPaid?'':' · ₱'+ch.remaining.toLocaleString()+' remaining')});
+  }
+  sv();cM();showToast(fullyPaid?'Charge fully paid ✓':'Partial payment recorded');goTo('wallets');
 }
 
 let swipeState={};
