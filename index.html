@@ -845,21 +845,27 @@ function bWallets(){
                         <div style="font-size:10px;color:var(--sub)">${esc(ch.date)} · ${esc(ch.cat)}</div>
                         ${isPartial?`<div style="font-size:10px;color:#EF9F27">Partial — ${f$(ch.amt-rem)} paid, ${f$(rem)} left</div>`:''}
                       </div>
-                      <div style="text-align:right;flex-shrink:0">
+                      <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
                         <div style="font-size:12px;font-weight:700;color:#E24B4A">${f$(rem)}</div>
-                        <button onclick="aCreditCard='${cc.id}';aChargeId='${ch.id}';oM('ccPayCharge')" style="margin-top:3px;padding:3px 9px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">Pay</button>
+                        <div style="display:flex;gap:4px">
+                          <button onclick="aCreditCard='${cc.id}';aChargeId='${ch.id}';oM('ccPayCharge')" style="padding:3px 9px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">Pay</button>
+                          <button onclick="deleteCCCharge('${cc.id}','${ch.id}')" style="padding:3px 7px;background:#FCEBEB;color:#791F1F;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">×</button>
+                        </div>
                       </div>
                     </div>`;
                   }).join('')}
                 </div>`:''}
                 ${paid.length?`<div style="margin-top:4px">
                   <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid</div>
-                  ${paid.map(ch=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
-                    <div>
+                  ${paid.map(ch=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
+                    <div style="flex:1;min-width:0">
                       <div style="font-size:11px;color:#aaa;text-decoration:line-through">${esc(ch.desc)}</div>
                       <div style="font-size:10px;color:#ccc">${esc(ch.date)}</div>
                     </div>
-                    <span style="font-size:11px;color:#aaa">${f$(ch.amt)}</span>
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                      <span style="font-size:11px;color:#aaa">${f$(ch.amt)}</span>
+                      <button onclick="deleteCCCharge('${cc.id}','${ch.id}')" style="padding:2px 7px;background:#f0f0f0;color:#aaa;border:none;border-radius:5px;font-size:10px;cursor:pointer">×</button>
+                    </div>
                   </div>`).join('')}
                 </div>`:''}
                 `:''}
@@ -2045,6 +2051,23 @@ function svCCPayCharge(){
     addTx({type:'expense',name:'CC Pay: '+ch.desc+' ('+cc.name+')',amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'CC payment via fund: '+fd.name+(fullyPaid?'':' · ₱'+ch.remaining.toLocaleString()+' remaining')});
   }
   sv();cM();showToast(fullyPaid?'Charge fully paid ✓':'Partial payment recorded');goTo('wallets');
+}
+
+function deleteCCCharge(ccId,chId){
+  if(!confirm('Delete this charge? This will remove it from your records and reduce the card balance.'))return;
+  const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
+  const ch=(cc.charges||[]).find(x=>x.id===chId);if(!ch)return;
+  // Remove the remaining unpaid amount from cc.used
+  const rem=ch.remaining??ch.amt;
+  cc.used=Math.max(0,cc.used-rem);
+  // Remove the charge
+  cc.charges=cc.charges.filter(x=>x.id!==chId);
+  // Remove matching transactions (original charge + any payment transactions for this charge)
+  DB.transactions=DB.transactions.filter(t=>
+    !(t.name&&(t.name.includes('[CC:')&&t.name.startsWith(ch.desc))||
+    (t.name&&t.name.startsWith('CC Pay: '+ch.desc)))
+  );
+  sv();showToast('Charge deleted');render();
 }
 
 let swipeState={};
