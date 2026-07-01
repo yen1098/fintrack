@@ -431,7 +431,7 @@ function showToast(msg='✓ Done!',emoji=''){
 
 function tasksDueSoon(){
   const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
-  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future&&new Date(t.due)>=now).length;
+  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future).length;
 }
 
 const SVGMAP={
@@ -588,6 +588,8 @@ function render(){
   const mhEl=document.getElementById('mh');
   if(AM==='confirm'||AM==='deleteConfirm'){
     mhEl.innerHTML=AM==='confirm'?bConfirmModal():bModal('deleteConfirm');
+  } else if(AM==='advancedTx'){
+    mhEl.innerHTML=bAdvancedTxModal();
   } else {
     mhEl.innerHTML=AM?`<div class="overlay" id="ov" onclick="if(event.target.id==='ov')cM()">${bModal(AM)}</div>`:'';
   }
@@ -614,37 +616,149 @@ function txR(t,showUndo=false){
   const c=C[t.cat]||C.Other;
   const ac=t.cat==='Transfer'?'xfer':t.type==='expense'?'neg':'pos';
   const as=t.type==='expense'?'−':'+';
-  const canUndo=showUndo&&t._snap;
-  return `<div class="tr" style="${canUndo?'flex-wrap:wrap;':''}">
+  const canUndo=showUndo&&t._snap&&!t._unlinkWallet&&!t._unlinkToSpend;
+  const hasUnlinks=t._unlinkWallet||t._unlinkToSpend;
+  const unlinkBadge=hasUnlinks?`<div style="font-size:9px;background:#FFF3CD;color:#856404;padding:1px 6px;border-radius:99px;display:inline-block;margin-top:2px">${[t._unlinkWallet?'wallet unlinked':'',t._unlinkToSpend?'budget unlinked':''].filter(Boolean).join(' · ')}</div>`:'';
+  return `<div class="tr" style="cursor:pointer${hasUnlinks?';opacity:.8':''}" onclick="handleTxTap('${t.id}')">
     <div class="ticon" style="background:${c[0]};color:#555">${SVGMAP[c[1]]||''}</div>
     <div style="flex:1;min-width:0">
       <div class="tn">${esc(t.name)}</div>
       <div class="td">${esc(t.date)}${t.walletName?' · '+esc(t.walletName):''}</div>
       ${t.note?`<div class="td" style="font-style:italic;color:#bbb">${esc(t.note)}</div>`:''}
+      ${unlinkBadge}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:6px">
-      <div class="ta ${ac}" style="white-space:nowrap">${as}${f$(t.amount)}</div>
-      ${canUndo?`<button onclick="undoTx('${t.id}')" style="padding:2px 8px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">↩ undo</button>`:''}
+      <div class="ta ${ac}" style="white-space:nowrap;${hasUnlinks?'text-decoration:line-through;opacity:.5':''}">${as}${f$(t.amount)}</div>
+      ${canUndo?`<button onclick="event.stopPropagation();undoTx('${t.id}')" style="padding:2px 8px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">↩ undo</button>`:''}
     </div>
   </div>`;
+}
+
+// 5-tap tracker for advanced transaction modal
+const tapTracker={};
+function handleTxTap(txId){
+  const now=Date.now();
+  if(!tapTracker[txId]||now-tapTracker[txId].last>1200){
+    tapTracker[txId]={count:1,last:now};
+  } else {
+    tapTracker[txId].count++;
+    tapTracker[txId].last=now;
+  }
+  if(tapTracker[txId].count>=5){
+    tapTracker[txId]={count:0,last:0};
+    openAdvancedTx(txId);
+  }
+}
+
+function openAdvancedTx(txId){
+  const t=DB.transactions.find(x=>x.id===txId);
+  if(!t)return;
+  // Find paired transaction (transfer pair, split pair)
+  let paired=null;
+  if(t.note&&t.note.includes('split bill')){
+    // find borrowing-related split tx
+    paired=DB.transactions.find(x=>x.id!==txId&&x.name&&x.name.includes(t.name.replace(' (my share)','')));
+  } else if(t.cat==='Transfer'&&t.walletId){
+    // find the other side of the transfer
+    paired=DB.transactions.find(x=>x.id!==txId&&x.cat==='Transfer'&&x.rawDate===t.rawDate);
+  }
+  AM='advancedTx';
+  window._advTxId=txId;
+  window._advTxPairedId=paired?paired.id:null;
+  render();
+}
+
+function bAdvancedTxModal(){
+  const t=DB.transactions.find(x=>x.id===window._advTxId);
+  if(!t)return '';
+  const paired=window._advTxPairedId?DB.transactions.find(x=>x.id===window._advTxPairedId):null;
+
+  function txUnlinkRow(tx,label){
+    const unlinkedWallet=!!tx._unlinkWallet;
+    const unlinkedTS=!!tx._unlinkToSpend;
+    const hasWallet=tx.walletId&&tx.walletId!=='';
+    const affectsTS=(tx.type==='income'&&tx.cat!=='Transfer'&&tx.cat!=='Fund'&&tx.cat!=='Bonus'&&tx.note!=='Borrowing settlement')
+      ||(tx.type==='expense'&&tx.cat!=='Transfer'&&tx.cat!=='Fund'&&tx.walletId!==null&&!(tx.name&&tx.name.includes('[CC:'))&&tx.note!=='Borrowing record'&&tx.note!=='Borrowing settlement');
+
+    return `<div style="border:.5px solid rgba(0,0,0,.09);border-radius:12px;padding:12px;margin-bottom:10px">
+      ${label?`<div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.5px;margin-bottom:8px">${label}</div>`:''}
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${esc(tx.name)}</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:10px">${esc(tx.date)} · ${tx.type==='expense'?'−':'+'}<b>₱${tx.amount.toLocaleString()}</b>${tx.walletName?' · '+esc(tx.walletName):''}</div>
+      ${hasWallet?`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:.5px solid rgba(0,0,0,.06)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text)">Wallet link</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:1px">${unlinkedWallet?'Unlinked — wallet balance is NOT affected':'Linked — wallet balance reflects this transaction'}</div>
+        </div>
+        <div onclick="toggleTxUnlink('${tx.id}','wallet')" style="width:40px;height:22px;border-radius:99px;background:${unlinkedWallet?'#e0e0e0':'#3B6D11'};cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+          <div style="position:absolute;top:3px;${unlinkedWallet?'left:3px':'left:21px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        </div>
+      </div>`:''}
+      ${affectsTS?`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:.5px solid rgba(0,0,0,.06)">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text)">To Spend link</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:1px">${unlinkedTS?'Unlinked — not counted in To Spend':'Linked — counted in To Spend budget'}</div>
+        </div>
+        <div onclick="toggleTxUnlink('${tx.id}','tospend')" style="width:40px;height:22px;border-radius:99px;background:${unlinkedTS?'#e0e0e0':'#3B6D11'};cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+          <div style="position:absolute;top:3px;${unlinkedTS?'left:3px':'left:21px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+        </div>
+      </div>`:''}
+      ${tx._unlinkWallet||tx._unlinkToSpend?`<div style="font-size:10px;color:#EF9F27;margin-top:6px">⚠ Undo disabled for this transaction (unlinks active)</div>`:''}
+    </div>`;
+  }
+
+  return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){AM=null;render()}">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="mtitle">Advanced Transaction<span class="mclose" onclick="AM=null;render()">×</span></div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:14px;background:#f8f8f8;border-radius:10px;padding:10px">Toggle links to control what this transaction affects. Changes take effect immediately and are saved.</div>
+      ${txUnlinkRow(t,paired?'PRIMARY TRANSACTION':'')}
+      ${paired?txUnlinkRow(paired,'PAIRED TRANSACTION'):''}
+      <button class="btns" onclick="AM=null;render()">Close</button>
+    </div>
+  </div>`;
+}
+
+function toggleTxUnlink(txId,type){
+  const t=DB.transactions.find(x=>x.id===txId);
+  if(!t)return;
+  if(type==='wallet'){
+    const wasUnlinked=!!t._unlinkWallet;
+    t._unlinkWallet=!wasUnlinked;
+    // Adjust wallet balance
+    const w=t.walletId?DB.wallets.find(x=>x.id===t.walletId):null;
+    if(w){
+      if(t._unlinkWallet){
+        // Restore wallet (reverse the transaction effect)
+        if(t.type==='expense'){w.currentBalance+=t.amount;w.actualBalance+=t.amount;}
+        else{w.currentBalance-=t.amount;w.actualBalance-=t.amount;}
+      } else {
+        // Re-apply wallet effect
+        if(t.type==='expense'){w.currentBalance-=t.amount;w.actualBalance-=t.amount;}
+        else{w.currentBalance+=t.amount;w.actualBalance+=t.amount;}
+      }
+    }
+    // Disable undo snap to prevent conflict
+    delete t._snap;
+  } else if(type==='tospend'){
+    t._unlinkToSpend=!t._unlinkToSpend;
+    delete t._snap;
+  }
+  sv();render();
 }
 
 function calcToSpend(){
   let ts=DB.toSpend.base;
   DB.transactions.forEach(t=>{
-    // Add income — but NOT transfers, fund top-ups, bonuses, or borrowing recoveries
+    if(t._unlinkToSpend)return;
     if(t.type==='income' && t.cat!=='Transfer' && t.cat!=='Fund' && t.cat!=='Bonus'
       && t.note!=='Borrowing settlement'){
       ts+=t.amount;
     }
-    // Deduct manual expenses only — not fund use, CC charges, transfers, borrowing records
     if(t.type==='expense' && t.cat!=='Transfer' && t.cat!=='Fund' && t.walletId!==null
       && !(t.name&&t.name.includes('[CC:'))
       && t.note!=='Borrowing record' && t.note!=='Borrowing settlement'){
       ts-=t.amount;
     }
   });
-  // Deduct ALL transfer group items
   DB.transferGroups.forEach(g=>{g.transfers.forEach(t=>{ts-=t.amount;});});
   return ts;
 }
@@ -1231,17 +1345,20 @@ function bTasks(){
       <div class="card">
         <div class="slbl">Pending</div>
         ${pend.length?pend.map(t=>{
-          const isDueSoon=t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now;
+          const isOverdue=t.due&&new Date(t.due)<now;
+          const isDueSoon=!isOverdue&&t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now;
+          const borderColor=isOverdue?'#E24B4A':isDueSoon?'#EF9F27':'#ccc';
+          const dateColor=isOverdue?'#E24B4A':isDueSoon?'#EF9F27':'var(--sub)';
           return `<div class="tr" id="task-row-${t.id}">
-            <div style="width:26px;height:26px;border-radius:8px;border:2px solid ${isDueSoon?'#E24B4A':'#ccc'};flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s" onclick="dTask('${t.id}')"></div>
+            <div style="width:26px;height:26px;border-radius:8px;border:2px solid ${borderColor};flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;${isOverdue?'background:#FFF0F0':''}" onclick="dTask('${t.id}')"></div>
             <div style="flex:1;min-width:0">
-              <div class="tn">${esc(t.name)}</div>
-              <div class="td" style="${isDueSoon?'color:#E24B4A;font-weight:600':''}">${esc(t.due||'No due date')} · ${f$(t.amt)}${t.walletId&&gW(t.walletId)?' · '+esc(gW(t.walletId).name):''}</div>
+              <div class="tn" style="${isOverdue?'color:#E24B4A;':''}">${esc(t.name)}</div>
+              <div class="td" style="color:${dateColor};font-weight:${isOverdue||isDueSoon?'600':'400'}">${esc(t.due||'No due date')} · ${f$(t.amt)}${t.walletId&&gW(t.walletId)?' · '+esc(gW(t.walletId).name):t.fundId&&DB.funds.find(f=>f.id===t.fundId)?' · '+esc(DB.funds.find(f=>f.id===t.fundId).name)+' (fund)':''}</div>
               ${t.freq?`<div class="td">${esc(t.freq)}</div>`:''}
               ${t.note?`<div class="td" style="font-style:italic">${esc(t.note)}</div>`:''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-              ${isDueSoon?'<span class="badge bd">Due soon</span>':''}
+              ${isOverdue?'<span class="badge bd">Past due</span>':isDueSoon?'<span class="badge bd">Due soon</span>':''}
               <button onclick="event.stopPropagation();pendingConfirm={type:'task',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#791F1F;border:none;border-radius:50%;font-size:13px;width:22px;height:22px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
             </div>
           </div>`;
@@ -1274,6 +1391,18 @@ function dTask(id){
       if(w){w.currentBalance-=t.amt;w.actualBalance-=t.amt;}
       const txId=uid();t.completedTxId=txId;
       DB.transactions.unshift({id:txId,rawDate:new Date().toISOString(),date:td(),type:'expense',name:'Task: '+t.name,amount:t.amt,cat:'Bills',walletId:t.walletId,walletName:w?w.name:'',note:t.note||''});
+    } else if(t.fundId&&t.amt>0){
+      const fd=DB.funds.find(x=>x.id===t.fundId);
+      if(fd){
+        if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
+        fd.spent+=t.amt;
+        if(!fd.uses)fd.uses=[];
+        fd.uses.unshift({amt:t.amt,desc:'Task: '+t.name,date:td(),rawDate:new Date().toISOString()});
+        const wd=fd.linkedWalletId?gW(fd.linkedWalletId):null;
+        if(wd){wd.currentBalance-=t.amt;wd.actualBalance-=t.amt;}
+        const txId=uid();t.completedTxId=txId;
+        DB.transactions.unshift({id:txId,rawDate:new Date().toISOString(),date:td(),type:'expense',name:'Task: '+t.name,amount:t.amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:(t.note||'')+' · via fund: '+fd.name});
+      }
     }
     sv();showToast('Task done');render();
   },300);
@@ -1284,7 +1413,17 @@ function uTask(id){
   t.done=false;
   if(t.completedTxId){
     DB.transactions=DB.transactions.filter(tx=>tx.id!==t.completedTxId);
-    if(t.walletId&&t.amt>0){const w=gW(t.walletId);if(w){w.currentBalance+=t.amt;w.actualBalance+=t.amt;}}
+    if(t.walletId&&t.amt>0){
+      const w=gW(t.walletId);if(w){w.currentBalance+=t.amt;w.actualBalance+=t.amt;}
+    } else if(t.fundId&&t.amt>0){
+      const fd=DB.funds.find(x=>x.id===t.fundId);
+      if(fd){
+        fd.spent=Math.max(0,fd.spent-t.amt);
+        if(fd.uses&&fd.uses.length)fd.uses=fd.uses.filter(u=>!(u.desc==='Task: '+t.name&&u.amt===t.amt));
+        const wd=fd.linkedWalletId?gW(fd.linkedWalletId):null;
+        if(wd){wd.currentBalance+=t.amt;wd.actualBalance+=t.amt;}
+      }
+    }
     t.completedTxId=null;
   }
   sv();showToast('Task restored','↩️');render();
@@ -1560,6 +1699,8 @@ function bModal(name){
         <div style="font-size:10px;color:var(--sub);margin-top:4px" id="freq-preview">Select a number and unit above</div>
       </div>
       <div class="field"><label>Deduct from wallet when done (optional)</label><select id="mtw"><option value="">— none —</option>${wOp}</select></div>
+      <div class="field"><label>Or pull from fund when done (optional)</label><select id="mtf"><option value="">— none —</option>${DB.funds.map(f=>{const r=Math.max(0,(f.total||0)-(f.spent||0));return `<option value="${f.id}">${esc(f.name)} (${f$(r)} left)</option>`;}).join('')}</select></div>
+      <div style="font-size:10px;color:var(--sub);margin-bottom:11px">If both are set, wallet is used. Leave both blank to just track the task without moving money.</div>
       <div class="field"><label>Notes</label><textarea id="mtn2" placeholder="Optional note..."></textarea></div>
       <button class="btnp" onclick="svTask()">Add task</button><button class="btns" onclick="cM()">Cancel</button>
       <script>(function(){function upd(){var n=document.getElementById('mtfreqn').value;var u=document.getElementById('mtfrequ').value;var el=document.getElementById('freq-preview');if(n&&u)el.textContent='Alert every '+n+' '+u+(n>1?'s':'');else el.textContent='Select a number and unit above';}document.getElementById('mtfreqn').addEventListener('input',upd);document.getElementById('mtfrequ').addEventListener('change',upd);})();<\/script>`);
@@ -1582,7 +1723,11 @@ function bModal(name){
 
     case 'resource': return W('Add Resource',`
       <div class="field"><label>Label *</label><input id="mrl" type="text" placeholder="e.g. Juan's GCash QR" autocomplete="off"></div>
-      <div class="field"><label>Group</label><input id="mrg" type="text" placeholder="e.g. Family, Work, Friends" autocomplete="off" list="rg-list"><datalist id="rg-list">${[...new Set(DB.resources.map(r=>r.group).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
+      <div class="field"><label>Group</label>
+        ${[...new Set(DB.resources.map(r=>r.group).filter(Boolean))].length>0?
+          `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${[...new Set(DB.resources.map(r=>r.group).filter(Boolean))].map(g=>`<button type="button" onclick="document.getElementById('mrg').value='${esc(g)}';[...document.querySelectorAll('.grp-btn')].forEach(b=>b.style.background='#f0f0f0');this.style.background='#D4E8FF'" class="grp-btn" style="padding:4px 10px;border:none;border-radius:99px;background:#f0f0f0;color:#555;font-size:12px;cursor:pointer">${esc(g)}</button>`).join('')}</div>`:''}
+        <input id="mrg" type="text" placeholder="Or type a new group name" autocomplete="off">
+      </div>
       <div class="field"><label>Reference / account number</label><input id="mrr" type="text" placeholder="e.g. 09xx-xxx-xxxx"></div>
       <div class="field"><label>Type</label><select id="mrt"><option>QR Code</option><option>Account Number</option><option>Contact</option><option>Reference</option></select></div>
       <div class="field"><label>Upload QR image (optional)</label><input id="mri" type="file" accept="image/*" onchange="pF('mri','mrp')"></div>
@@ -1904,10 +2049,10 @@ function svFU(){
   cM();goTo('funds');
 }
 function svTask(){
-  const n=vv('mtn'),a=parseFloat(vv('mta'))||0,d=vv('mtd'),freqN=vv('mtfreqn'),freqU=vv('mtfrequ'),w=vv('mtw'),no=vv('mtn2');
+  const n=vv('mtn'),a=parseFloat(vv('mta'))||0,d=vv('mtd'),freqN=vv('mtfreqn'),freqU=vv('mtfrequ'),w=vv('mtw'),fi=vv('mtf'),no=vv('mtn2');
   if(!n)return alert('Please enter a task name');
   const freq=(freqN&&freqU)?('every '+freqN+' '+freqU+(parseInt(freqN)>1?'s':'')):'';
-  DB.tasks.push({id:uid(),name:n,amt:a,due:d,freq,walletId:w,note:no,done:false,rawDate:d?new Date(d).toISOString():new Date().toISOString()});
+  DB.tasks.push({id:uid(),name:n,amt:a,due:d,freq,walletId:w,fundId:fi,note:no,done:false,rawDate:d?new Date(d).toISOString():new Date().toISOString()});
   sv();cM();goTo('tasks');
 }
 function svBor(){
