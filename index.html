@@ -913,8 +913,18 @@ function bWallets(){
           const barC=usedPct>80?'#E24B4A':usedPct>50?'#EF9F27':'#3B6D11';
           const ccCl=BC[cc.bank]||BC.Other;
           const charges=cc.charges||[];
+          const now30=new Date();now30.setDate(now30.getDate()-30);
+          // Auto-archive paid charges older than 30 days
+          charges.forEach(ch=>{
+            const isPaid=(ch.remaining??ch.amt)<=0;
+            if(isPaid&&!ch._archived&&ch.rawDate&&new Date(ch.rawDate)<now30){
+              ch._archived=true;
+            }
+          });
           const unpaid=charges.filter(ch=>(ch.remaining??ch.amt)>0);
-          const paid=charges.filter(ch=>(ch.remaining??ch.amt)<=0);
+          const recentPaid=charges.filter(ch=>(ch.remaining??ch.amt)<=0&&!ch._archived);
+          const archived=charges.filter(ch=>ch._archived);
+          const paid=[...recentPaid]; // display only recent paid in main section
           const ccExpanded=!!cc._expanded;
           return `<div style="position:relative;margin-bottom:8px;border-radius:14px;overflow:hidden">
             <div style="position:absolute;inset:0;background:#FCEBEB;border-radius:14px;z-index:0"></div>
@@ -945,7 +955,7 @@ function bWallets(){
               ${charges.length?`
               <div style="border-top:.5px solid rgba(0,0,0,.07);padding-top:8px">
                 <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:${ccExpanded?'8px':'0'}" onclick="(function(){const c=DB.creditCards.find(x=>x.id==='${cc.id}');if(c){c._expanded=!c._expanded;render();}})()">
-                  <span style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.5px">CHARGES (${charges.length}) · ${unpaid.length} unpaid</span>
+                  <span style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.5px">CHARGES (${unpaid.length} unpaid${archived.length>0?' · '+archived.length+' archived':''})</span>
                   <span style="color:#ccc;font-size:12px">${ccExpanded?'▲':'▼'}</span>
                 </div>
                 ${ccExpanded?`
@@ -970,7 +980,7 @@ function bWallets(){
                   }).join('')}
                 </div>`:''}
                 ${paid.length?`<div style="margin-top:4px">
-                  <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid</div>
+                  <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid (last 30 days)</div>
                   ${paid.map(ch=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
                     <div style="flex:1;min-width:0">
                       <div style="font-size:11px;color:#aaa;text-decoration:line-through">${esc(ch.desc)}</div>
@@ -979,6 +989,22 @@ function bWallets(){
                     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
                       <span style="font-size:11px;color:#aaa">${f$(ch.amt)}</span>
                       <button onclick="deleteCCCharge('${cc.id}','${ch.id}')" style="padding:2px 7px;background:#f0f0f0;color:#aaa;border:none;border-radius:5px;font-size:10px;cursor:pointer">×</button>
+                    </div>
+                  </div>`).join('')}
+                </div>`:''}
+                ${archived.length?`<div style="margin-top:8px;background:#f8f8f8;border-radius:9px;padding:8px 10px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <div style="font-size:10px;color:#bbb;font-weight:700">ARCHIVED (30+ days ago · ${archived.length} charge${archived.length!==1?'s':''})</div>
+                    <button onclick="clearArchivedCharges('${cc.id}')" style="padding:2px 9px;background:#FCEBEB;color:#791F1F;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">Clear all</button>
+                  </div>
+                  ${archived.map(ch=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:11px;color:#ccc;text-decoration:line-through">${esc(ch.desc)}</div>
+                      <div style="font-size:10px;color:#ddd">${esc(ch.date)}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                      <span style="font-size:11px;color:#ccc">${f$(ch.amt)}</span>
+                      <button onclick="deleteCCCharge('${cc.id}','${ch.id}')" style="padding:2px 7px;background:#f0f0f0;color:#ccc;border:none;border-radius:5px;font-size:10px;cursor:pointer">×</button>
                     </div>
                   </div>`).join('')}
                 </div>`:''}
@@ -1451,7 +1477,7 @@ function bBorrow(){
     </div>`;
   }
   return `<div class="screen">
-    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Borrowing</span><span class="abi" onclick="oM('borrow')">＋</span></div>
+    <div class="ab"><span class="abi" onclick="goTo('more')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="abt">Borrowing</span><div style="display:flex;gap:6px"><span class="abi" onclick="oM('borrowSummary')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span><span class="abi" onclick="oM('borrow')">＋</span></div></div>
     <div class="ct">
       <div class="sr">
         <div class="sb2"><div class="sbl2">I lent</div><div class="sbv pos">${f$(tL)}</div></div>
@@ -1900,6 +1926,61 @@ function bModal(name){
         <div class="field" style="margin-bottom:0"><label>Pull from fund</label><select id="ccpfund">${fO2}</select></div>
       </div>
       <button class="btnp" onclick="svCCPayCharge()">Record payment</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'borrowSummary':{
+      const groups={};
+      DB.borrowings.forEach(b=>{
+        const key=b.name.trim().toLowerCase();
+        if(!groups[key])groups[key]={displayName:b.name.trim(),lent:0,owe:0,records:[]};
+        const rem=b.total-b.paid;
+        if(b.dir==='lent')groups[key].lent+=rem;
+        else groups[key].owe+=rem;
+        groups[key].records.push(b);
+      });
+      const entries=Object.values(groups).sort((a,b)=>Math.abs(b.lent-b.owe)-Math.abs(a.lent-a.owe));
+      const totalLent=entries.reduce((s,e)=>s+e.lent,0);
+      const totalOwe=entries.reduce((s,e)=>s+e.owe,0);
+      return W('Borrowing Summary',`
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <div style="flex:1;background:#EAF3DE;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#27500A;font-weight:700;margin-bottom:2px">THEY OWE ME</div>
+            <div style="font-size:18px;font-weight:700;color:#27500A">${f$(totalLent)}</div>
+          </div>
+          <div style="flex:1;background:#FCEBEB;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#791F1F;font-weight:700;margin-bottom:2px">I OWE THEM</div>
+            <div style="font-size:18px;font-weight:700;color:#791F1F">${f$(totalOwe)}</div>
+          </div>
+        </div>
+        ${entries.length?entries.map(e=>{
+          const net=e.lent-e.owe;
+          const netColor=net>0?'#3B6D11':net<0?'#E24B4A':'#999';
+          const netLabel=net>0?'net owed to you':net<0?'net you owe':'settled';
+          const multi=e.records.length>1;
+          return `<div style="border:.5px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:#fafafa;${multi?'border-bottom:.5px solid rgba(0,0,0,.06)':''}">
+              <div style="width:36px;height:36px;border-radius:50%;background:${net>0?'#EAF3DE':net<0?'#FCEBEB':'#f0f0f0'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${netColor};flex-shrink:0">${e.displayName.split(' ').map(x=>x[0]||'').join('').toUpperCase().slice(0,2)}</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(e.displayName)}</div>
+                <div style="font-size:11px;color:var(--sub)">${e.records.length} record${e.records.length!==1?'s':''}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:16px;font-weight:700;color:${netColor}">${net>0?'+':net<0?'−':''}${f$(Math.abs(net))}</div>
+                <div style="font-size:10px;color:var(--sub)">${netLabel}</div>
+              </div>
+            </div>
+            ${multi?`<div style="padding:6px 13px 10px">${e.records.map(r=>{
+              const rem=r.total-r.paid;
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.04)">
+                <div>
+                  <div style="font-size:11px;color:#555">${r.dir==='lent'?'You lent':'You owe'}${r.note?' \u00B7 '+esc(r.note.replace('Split bill: ','')):''}</div>
+                  ${r.due?`<div style="font-size:10px;color:var(--sub)">Due ${esc(r.due)}</div>`:''}
+                </div>
+                <span style="font-size:12px;font-weight:600;color:${r.dir==='lent'?'#3B6D11':'#E24B4A'}">${r.dir==='lent'?'+':'−'}${f$(rem)}</span>
+              </div>`;
+            }).join('')}</div>`:''}
+          </div>`;
+        }).join(''):`<div style="text-align:center;font-size:13px;color:var(--sub);padding:16px">No borrowing records yet</div>`}
+        <button class="btns" onclick="cM()">Close</button>`);}
   }
 }
 
@@ -1913,7 +1994,7 @@ function addSplitPerson(){
   d.id='sp-'+i;
   d.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
   d.innerHTML='<input type="text" placeholder="Name (e.g. Ate)" style="flex:1;font-size:13px;padding:8px 10px;border:.5px solid rgba(0,0,0,.2);border-radius:9px;background:#f8f8f8" class="split-name" oninput="updateSplitCalc()">'
-    +'<button type="button" onclick="this.parentElement.remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#791F1F;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">×</button>';
+    +'<button type="button" onclick="this.parentElement.remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#791F1F;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">\u00D7</button>';
   c.appendChild(d);
   d.querySelector('input').focus();
   updateSplitCalc();
@@ -2060,8 +2141,12 @@ function svBor(){
   if(!n||!a)return alert('Please fill name and amount');
   const wd=dir==='lent'?gW(w):null;
   if(dir==='lent'&&wd){wd.currentBalance-=a;}
-  DB.borrowings.push({id:uid(),name:n,total:a,paid:0,dir,walletId:w,walletName:wd?wd.name:'',due,payments:[]});
-  if(dir==='lent'&&wd)addTx({type:'expense',name:'Lent to '+n,amount:a,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing record'});
+  DB.borrowings.push({id:uid(),name:n,total:a,paid:0,dir,walletId:dir==='lent'?w:'',walletName:wd?wd.name:'',due,payments:[]});
+  if(dir==='lent'&&wd){
+    addTx({type:'expense',name:'Lent to '+n,amount:a,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing record'});
+  } else {
+    sv(); // must save for 'owe' records since addTx isn't called
+  }
   cM();goTo('borrowing');
 }
 function svPay(){
@@ -2142,14 +2227,12 @@ function svCCPay(){
   if(!wid&&!fid)return alert('Please select a wallet or a fund to pay from');
 
   if(wid){
-    // Pay from wallet
     const wd=gW(wid);if(!wd)return;
     if(amt>wd.currentBalance)return alert('Insufficient wallet balance');
     wd.currentBalance-=amt;wd.actualBalance-=amt;
     cc.used=Math.max(0,cc.used-amt);
     addTx({type:'expense',name:'CC Payment: '+cc.name,amount:amt,cat:'Bills',walletId:wid,walletName:wd.name,note:'Credit card bill payment'});
   } else {
-    // Pay from fund
     const fd=DB.funds.find(x=>x.id===fid);if(!fd)return;
     if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
     const remaining=Math.max(0,fd.total-fd.spent);
@@ -2157,11 +2240,25 @@ function svCCPay(){
     fd.spent+=amt;
     if(!fd.uses)fd.uses=[];
     fd.uses.unshift({amt,desc:'CC Payment: '+cc.name,date:td(),rawDate:new Date().toISOString()});
-    // Also deduct from linked wallet if set
     const wd=fd.linkedWalletId?gW(fd.linkedWalletId):null;
     if(wd){wd.currentBalance-=amt;wd.actualBalance-=amt;}
     cc.used=Math.max(0,cc.used-amt);
     addTx({type:'expense',name:'CC Payment: '+cc.name,amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'Credit card bill payment via fund: '+fd.name});
+  }
+
+  // Mark individual charges as paid — distribute payment across unpaid charges oldest first
+  let remaining=amt;
+  const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
+  for(const ch of unpaid){
+    if(remaining<=0)break;
+    const chargeRem=ch.remaining??ch.amt;
+    if(remaining>=chargeRem){
+      ch.remaining=0;
+      remaining-=chargeRem;
+    } else {
+      ch.remaining=Math.round((chargeRem-remaining)*100)/100;
+      remaining=0;
+    }
   }
 
   sv();cM();showToast('Payment recorded');goTo('wallets');
@@ -2196,6 +2293,13 @@ function svCCPayCharge(){
     addTx({type:'expense',name:'CC Pay: '+ch.desc+' ('+cc.name+')',amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'CC payment via fund: '+fd.name+(fullyPaid?'':' · ₱'+ch.remaining.toLocaleString()+' remaining')});
   }
   sv();cM();showToast(fullyPaid?'Charge fully paid ✓':'Partial payment recorded');goTo('wallets');
+}
+
+function clearArchivedCharges(ccId){
+  if(!confirm('Remove all archived charges from this card? This only removes the charge records — your transaction history in the Ledger is unaffected.'))return;
+  const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
+  cc.charges=(cc.charges||[]).filter(ch=>!ch._archived);
+  sv();showToast('Archived charges cleared');render();
 }
 
 function deleteCCCharge(ccId,chId){
