@@ -808,8 +808,7 @@ function bHome(){
       txMini+='</div>';
     }
     return `<div style="margin-bottom:9px">
-      <div style="background:${pastelbg};border-radius:${isO?'18px 18px 0 0':'18px'};padding:12px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;position:relative;overflow:hidden;box-shadow:0 4px 14px rgba(150,130,200,.12)" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
-        <div style="position:absolute;right:-15px;top:-15px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.2);pointer-events:none"></div>
+      <div style="background:${pastelbg};border-radius:${isO?'18px 18px 0 0':'18px'};padding:12px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;box-shadow:0 4px 14px rgba(150,130,200,.12)" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
         <div style="width:38px;height:38px;border-radius:13px;background:${cl[0]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.15)">${initial}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700;color:#2A1858">${esc(w.name)}</div>
@@ -857,11 +856,13 @@ function bHome(){
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${balHidden?'••••':f$(Math.max(0,avail))}</span>
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Limit: </span><span style="font-size:12px;color:#555">${f$(cc.limit)}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<div style="display:flex;align-items:center;gap:5px"><span style="font-size:10px;color:var(--sub)">${cnt} sel</span><span style="font-size:14px;font-weight:800;color:#E24B4A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 6px;background:#f0f0f0;color:#888;border:none;border-radius:5px;font-size:10px;cursor:pointer">✕</button></div>`:'<span style="font-size:10px;color:#ccc">tap rows to total</span>'})()}
-            <div style="display:flex;gap:5px">
-              <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 10px;background:#FCEBEB;color:#791F1F;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
-              <button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 10px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div style="display:flex;gap:6px">
+              <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#FFE8F0;color:#C0445A;border:none;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Charge</button>
+              <button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#E0F5E8;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Pay all</button>
+            </div>
+            <div style="flex-shrink:0">
+              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<div style="display:flex;align-items:center;gap:5px"><span style="font-size:10px;color:#9B8BBE">${cnt} sel</span><span style="font-size:15px;font-weight:800;color:#C0445A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#F0EDF8;color:#9B8BBE;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button></div>`:'<span style="font-size:10px;color:#C0B8D8">tap rows to total</span>'})()}
             </div>
           </div>
         </div>
@@ -926,38 +927,40 @@ function bHome(){
   }).join(''):'';
 
   return `<div class="screen" style="position:relative">
-    <div class="ab" style="background:#1a1a2e">
-      <span class="abt" style="color:#fff">${isDesktop()?'Home':'FinTrack'}</span>
+    <div class="ab">
+      <span class="abt">${isDesktop()?'Home':'FinTrack'}</span>
       <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
     </div>
     <div class="ct" style="padding-bottom:160px;background:#f0f2f5">
 
       <!-- DASHBOARD CARD -->
-      <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);border-radius:22px;padding:20px;margin-bottom:2px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-          <div>
-            <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:1px;margin-bottom:4px">TOTAL BALANCE</div>
-            <div style="font-size:32px;font-weight:800;color:#fff;letter-spacing:-1px;line-height:1">${balHidden?'₱ ••••••':f$(tot)}</div>
-            ${!balHidden&&actualTot!==tot?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">Actual: ${f$(actualTot)}</div>`:''}
+      <div style="background:linear-gradient(135deg,#D4C5F0 0%,#C5DCF5 100%);border-radius:22px;padding:20px;margin-bottom:2px">
+        <div style="background:rgba(255,255,255,.5);border-radius:16px;padding:18px 18px 16px;backdrop-filter:blur(8px)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+            <div>
+              <div style="font-size:10px;color:#8B70C0;font-weight:700;letter-spacing:1px;margin-bottom:4px">TOTAL BALANCE</div>
+              <div style="font-size:32px;font-weight:800;color:#3D2578;letter-spacing:-1px;line-height:1">${balHidden?'₱ ••••••':f$(tot)}</div>
+              ${!balHidden&&actualTot!==tot?`<div style="font-size:11px;color:#A090C0;margin-top:4px">Actual: ${f$(actualTot)}</div>`:''}
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:10px;color:#8B70C0;font-weight:700;letter-spacing:1px;margin-bottom:4px">TO SPEND</div>
+              <div style="font-size:24px;font-weight:800;color:${toSpendVal>=0?'#2A7A3A':'#C0445A'};letter-spacing:-.5px;line-height:1">${balHidden?'₱ ••••':toSpendVal<0?'−'+f$(Math.abs(toSpendVal)):f$(toSpendVal)}</div>
+              <button onclick="oM('toSpendSettings')" style="margin-top:5px;padding:3px 10px;background:rgba(255,255,255,.6);color:#7B5EA7;border:none;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer">set budget</button>
+            </div>
           </div>
-          <div style="text-align:right">
-            <div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:1px;margin-bottom:4px">TO SPEND</div>
-            <div style="font-size:24px;font-weight:800;color:${toSpendVal>=0?'#7AE05A':'#FF6B6B'};letter-spacing:-.5px;line-height:1">${balHidden?'₱ ••••':toSpendVal<0?'−'+f$(Math.abs(toSpendVal)):f$(toSpendVal)}</div>
-            <button onclick="oM('toSpendSettings')" style="margin-top:5px;padding:3px 10px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">set budget</button>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <div style="flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:10px 12px">
-            <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.8px;margin-bottom:3px">${DB.wallets.length} WALLET${DB.wallets.length!==1?'S':''}</div>
-            <div style="font-size:13px;font-weight:700;color:#fff">${balHidden?'••••':f$(tot)}</div>
-          </div>
-          ${ccTotal>0?`<div style="flex:1;background:rgba(226,75,74,.15);border-radius:12px;padding:10px 12px">
-            <div style="font-size:9px;color:rgba(255,107,107,.7);font-weight:700;letter-spacing:.8px;margin-bottom:3px">CC OWED</div>
-            <div style="font-size:13px;font-weight:700;color:#FF6B6B">${balHidden?'••••':f$(ccTotal)}</div>
-          </div>`:''}
-          <div style="flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:10px 12px">
-            <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.8px;margin-bottom:3px">NET WORTH</div>
-            <div style="font-size:13px;font-weight:700;color:#fff">${balHidden?'••••':f$(tot-ccTotal)}</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;background:rgba(255,255,255,.5);border-radius:12px;padding:10px 12px">
+              <div style="font-size:9px;color:#A090C0;font-weight:700;letter-spacing:.8px;margin-bottom:3px">${DB.wallets.length} WALLET${DB.wallets.length!==1?'S':''}</div>
+              <div style="font-size:13px;font-weight:800;color:#3D2578">${balHidden?'••••':f$(tot)}</div>
+            </div>
+            ${ccTotal>0?`<div style="flex:1;background:rgba(255,200,210,.4);border-radius:12px;padding:10px 12px">
+              <div style="font-size:9px;color:#C0445A;font-weight:700;letter-spacing:.8px;margin-bottom:3px">CC OWED</div>
+              <div style="font-size:13px;font-weight:800;color:#C0445A">${balHidden?'••••':f$(ccTotal)}</div>
+            </div>`:''}
+            <div style="flex:1;background:rgba(255,255,255,.5);border-radius:12px;padding:10px 12px">
+              <div style="font-size:9px;color:#A090C0;font-weight:700;letter-spacing:.8px;margin-bottom:3px">NET WORTH</div>
+              <div style="font-size:13px;font-weight:800;color:#3D2578">${balHidden?'••••':f$(tot-ccTotal)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2221,7 +2224,7 @@ function svCreditCard(){
   const n=vv('ccn');if(!n)return alert('Please enter a card name');
   const limit=parseFloat(vv('cclimit'))||0;const used=parseFloat(vv('ccused'))||0;
   DB.creditCards.push({id:uid(),name:n,bank:vv('ccbk')||'Other',acct:vv('ccac'),limit,used,charges:[],createdAt:new Date().toISOString()});
-  sv();cM();showToast('Credit card added');goTo('wallets');
+  sv();cM();showToast('Credit card added');goTo('home');
 }
 function svCCCharge(){
   const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
@@ -2231,7 +2234,7 @@ function svCCCharge(){
   cc.used+=amt;if(!cc.charges)cc.charges=[];
   cc.charges.unshift({id:uid(),desc,amt,cat,date:td(),rawDate:new Date().toISOString()});
   addTx({type:'expense',name:desc+'[CC:'+cc.name+']',amount:amt,cat:cat,walletId:null,walletName:cc.name,note:'Charged to credit card'});
-  sv();cM();showToast('Charge recorded');goTo('wallets');
+  sv();cM();showToast('Charge recorded');goTo('home');
 }
 function svCCPay(){
   const cc=DB.creditCards.find(x=>x.id===aCreditCard);if(!cc)return;
@@ -2276,7 +2279,7 @@ function svCCPay(){
     }
   }
 
-  sv();cM();showToast('Payment recorded');goTo('wallets');
+  sv();cM();showToast('Payment recorded');goTo('home');
 }
 
 function svCCPayCharge(){
@@ -2307,7 +2310,7 @@ function svCCPayCharge(){
     if(wd){wd.currentBalance-=amt;wd.actualBalance-=amt;}
     addTx({type:'expense',name:'CC Pay: '+ch.desc+' ('+cc.name+')',amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'CC payment via fund: '+fd.name+(fullyPaid?'':' · ₱'+ch.remaining.toLocaleString()+' remaining')});
   }
-  sv();cM();showToast(fullyPaid?'Charge fully paid ✓':'Partial payment recorded');goTo('wallets');
+  sv();cM();showToast(fullyPaid?'Charge fully paid ✓':'Partial payment recorded');goTo('home');
 }
 
 function clearArchivedCharges(ccId){
