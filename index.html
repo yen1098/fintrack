@@ -236,6 +236,8 @@ function showApp(){
   document.getElementById('login-screen').style.display='none';
   const app=document.getElementById('app');
   app.style.display='flex';
+  // Always start CC cards collapsed
+  (DB.creditCards||[]).forEach(cc=>{cc._expanded=false;});
   if(isDesktop()&&!document.getElementById('desktop-sidebar')){
     app.innerHTML=`
       <div id="desktop-sidebar"></div>
@@ -784,6 +786,13 @@ function selectTmpl(id){
   }
 }
 function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;pendingConfirm={type:'group',id};AM='deleteConfirm';render();}
+function selectAllCharges(ccId){
+  const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
+  const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
+  if(!selectedCharges[ccId])selectedCharges[ccId]=new Set();
+  unpaid.forEach(ch=>selectedCharges[ccId].add(ch.id));
+  render();
+}
 function calcToSpend(){
   let ts=DB.toSpend.base;
   DB.transactions.forEach(t=>{
@@ -886,7 +895,7 @@ function bHome(){
             return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:`<button onclick="if(!selectedCharges['${cc.id}'])selectedCharges['${cc.id}']=new Set();unpaid.forEach(ch=>selectedCharges['${cc.id}'].add(ch.id));render()" style="padding:3px 10px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Select all</button>`;})()}
+            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:`<button onclick="selectAllCharges('${cc.id}')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Select all</button>`;})()}
           </div>
         </div>
         ${charges.length?`
