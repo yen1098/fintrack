@@ -873,23 +873,21 @@ function bHome(){
         <div style="background:#e0e0e0;border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">
           <div style="width:${usedPct}%;height:7px;border-radius:99px;background:${barC};transition:width .3s"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <div>
             <span style="font-size:11px;color:var(--sub)">Used: </span><span style="font-size:12px;font-weight:700;color:#E24B4A">${balHidden?'••••':f$(cc.used)}</span>
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${balHidden?'••••':f$(Math.max(0,avail))}</span>
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Limit: </span><span style="font-size:12px;color:#555">${f$(cc.limit)}</span>
           </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;align-items:center;gap:8px">
-            <div style="display:flex;gap:6px;flex-shrink:0">
-              <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
-              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;
-              if(cnt>0){return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;}
-              return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
-            </div>
-            <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px">
-              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:'<span style="font-size:10px;color:#C0C0C0">tap rows to total</span>'})()}
-            </div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:'<span style="font-size:10px;color:#C0C0C0">tap to total</span>'})()}
           </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
+          ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;
+          if(cnt>0){return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;}
+          return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
         </div>
         ${charges.length?`
         <div style="border-top:.5px solid rgba(0,0,0,.07);padding-top:8px">
