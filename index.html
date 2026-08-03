@@ -114,7 +114,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .confirm-btns button{flex:1;padding:11px;border:none;border-radius:99px;font-size:13px;font-weight:700;cursor:pointer}
 .cb-cancel{background:#f8f8f8;color:#888}
 .cb-ok{background:#4CAF82;color:#fff}
-.cb-red{background:#f0f0f0;color:#4CAF82}
+.cb-red{background:#E05C7A;color:#fff}
 </style>
 </head>
 <body>
@@ -764,7 +764,26 @@ function getSelectedTotal(ccId,charges){
 }
 
 function renameTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;const n=prompt('Rename template:',t.name);if(n&&n.trim()){t.name=n.trim();sv();render();}}
-function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;if(!confirm('Delete template "'+t.name+'"?'))return;DB.transferGroups=DB.transferGroups.filter(x=>x.id!==id);sv();render();}
+function selectTmpl(id){
+  const hidden=document.getElementById('mtmpl');if(!hidden)return;
+  const current=hidden.value;
+  const selecting=current!==id;
+  hidden.value=selecting?id:'';
+  // Reset all tiles
+  document.querySelectorAll('[id^="tmpl-tile-"]').forEach(el=>{
+    el.style.border='1.5px solid #eee';el.style.background='#fafafa';
+  });
+  document.querySelectorAll('[id^="tmpl-check-"]').forEach(el=>{
+    el.style.borderColor='#ddd';el.style.background='#fff';el.innerHTML='';
+  });
+  if(selecting){
+    const tile=document.getElementById('tmpl-tile-'+id);
+    const check=document.getElementById('tmpl-check-'+id);
+    if(tile){tile.style.border='1.5px solid #4CAF82';tile.style.background='#F0FAF4';}
+    if(check){check.style.borderColor='#4CAF82';check.style.background='#4CAF82';check.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>';}
+  }
+}
+function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;pendingConfirm={type:'group',id};AM='deleteConfirm';render();}
 function calcToSpend(){
   let ts=DB.toSpend.base;
   DB.transactions.forEach(t=>{
@@ -860,15 +879,15 @@ function bHome(){
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${balHidden?'••••':f$(Math.max(0,avail))}</span>
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Limit: </span><span style="font-size:12px;color:#555">${f$(cc.limit)}</span>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <div style="display:flex;gap:6px">
+          <div style="display:flex;align-items:center;position:relative;min-height:32px">
+            <div style="display:flex;gap:6px;flex-shrink:0">
               <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
-              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;
-              if(cnt>0){return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#4CAF82;color:#fff;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;}
-              return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#4CAF82;color:#fff;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
+              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;
+              if(cnt>0){return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;}
+              return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
             </div>
-            <div style="flex-shrink:0;margin-left:auto">
-              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<div style="display:flex;align-items:center;gap:5px"><span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button></div>`:'<span style="font-size:10px;color:#C0C0C0">tap rows to total</span>'})()}
+            <div style="position:absolute;right:0;display:flex;align-items:center;gap:5px">
+              ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:'<span style="font-size:10px;color:#C0C0C0">tap rows to total</span>'})()}
             </div>
           </div>
         </div>
@@ -1819,10 +1838,22 @@ function bModal(name){
       <button class="btnp" onclick="svQR()">Save QR</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'newgroup':{
-      const tmplOpts=templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
       return W('New Transfer Group',`
-      ${templates.length?`<div class="field"><label>Start from template (optional)</label><select id="mtmpl"><option value="">— blank group —</option>${tmplOpts}</select></div>
-      <div style="margin-top:-6px;margin-bottom:10px">${templates.map(t=>{const tname=esc(t.name);const tid=t.id;return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#fafafa;border-radius:8px;margin-bottom:4px;border:.5px solid #eee"><span style="font-size:12px;color:#555">'+tname+'</span><div style="display:flex;gap:6px"><button onclick="renameTmpl(\''+tid+'\')" style="padding:3px 8px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Rename</button><button onclick="deleteTmpl(\''+tid+'\')" style="padding:3px 8px;background:#FCEBEB;color:#C0192C;border:none;border-radius:6px;font-size:11px;cursor:pointer">Delete</button></div></div>';}).join('')}</div>`:''}
+      ${templates.length?`
+      <div style="font-size:10px;color:#ccc;font-weight:700;letter-spacing:.8px;margin-bottom:8px">START FROM TEMPLATE (optional)</div>
+      <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:6px" id="tmpl-list">
+        ${templates.map(t=>`<div id="tmpl-tile-${t.id}" onclick="selectTmpl('${t.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fafafa;border-radius:12px;border:1.5px solid #eee;cursor:pointer;transition:all .15s">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="tmpl-check-${t.id}" style="width:18px;height:18px;border-radius:5px;border:1.5px solid #ddd;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+            <span style="font-size:13px;color:#333;font-weight:500">${esc(t.name)}</span>
+          </div>
+          <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
+            <button onclick="renameTmpl('${t.id}')" style="padding:3px 9px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Rename</button>
+            <button onclick="deleteTmpl('${t.id}')" style="padding:3px 9px;background:#FCEBEB;color:#C0192C;border:none;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>
+          </div>
+        </div>`).join('')}
+      </div>
+      <input type="hidden" id="mtmpl" value="">`:''}
       <div class="field"><label>Group name *</label><input id="mgn" type="text" placeholder="e.g. June Salary Day" autocomplete="off"></div>
       <button class="btnp" onclick="svGroup()">Create group</button><button class="btns" onclick="cM()">Cancel</button>`);}
 
@@ -1905,17 +1936,20 @@ function bModal(name){
             </div>
           </div>
         </div>`;}
-      const isF=pc.type==='fund',isG=pc.type==='group',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource';
+      const isF=pc.type==='fund',isG=pc.type==='group',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource',isCCCh=pc.type==='ccCharge',isClear=pc.type==='clearArchived';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
       const grp=isG?DB.transferGroups.find(x=>x.id===pc.id):null;
-      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC&&!isR)?DB.transferGroups.find(x=>x.id===pc.gid):null;
+      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC&&!isR&&!isCCCh&&!isClear)?DB.transferGroups.find(x=>x.id===pc.gid):null;
       const xItem=grpX?grpX.transfers.find(x=>x.id===pc.id):null;
       const tsk=isTk?DB.tasks.find(x=>x.id===pc.id):null;
       const res=isR?DB.resources.find(x=>x.id===pc.id):null;
       const ntitle=(DB.notes&&pc.idx!==undefined&&DB.notes[pc.idx])?DB.notes[pc.idx].title||'Untitled note':'this note';
-      const label=isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isR?(res?res.label:'this resource'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
-      const kind=isW?'Wallet':isCC?'Credit Card':isR?'Resource':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
-      const fn=isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isR?'confirmDeleteResource':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
+      const ccForCharge=isCCCh?DB.creditCards.find(x=>x.id===pc.ccId):null;
+      const chRecord=isCCCh&&ccForCharge?(ccForCharge.charges||[]).find(x=>x.id===pc.chId):null;
+      const ccForClear=isClear?DB.creditCards.find(x=>x.id===pc.ccId):null;
+      const label=isCCCh?(chRecord?chRecord.desc:'this charge'):isClear?'all archived charges'+(ccForClear?' from '+ccForClear.name:''):isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isR?(res?res.label:'this resource'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
+      const kind=isCCCh?'CC Charge':isClear?'Archived Charges':isW?'Wallet':isCC?'Credit Card':isR?'Resource':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
+      const fn=isCCCh?'confirmDeleteCCCharge':isClear?'confirmClearArchived':isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isR?'confirmDeleteResource':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
       return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
           <div class="confirm-box">
@@ -2355,27 +2389,29 @@ function svCCPayCharge(){
 }
 
 function clearArchivedCharges(ccId){
-  if(!confirm('Remove all archived charges from this card? This only removes the charge records — your transaction history in the Ledger is unaffected.'))return;
-  const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
+  pendingConfirm={type:'clearArchived',ccId};AM='deleteConfirm';render();
+}
+function confirmClearArchived(){
+  const cc=DB.creditCards.find(x=>x.id===pendingConfirm.ccId);if(!cc)return;
   cc.charges=(cc.charges||[]).filter(ch=>!ch._archived);
-  sv();showToast('Archived charges cleared');render();
+  pendingConfirm=null;AM=null;sv();showToast('Archived charges cleared');render();
 }
 
 function deleteCCCharge(ccId,chId){
-  if(!confirm('Delete this charge? This will remove it from your records and reduce the card balance.'))return;
-  const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
-  const ch=(cc.charges||[]).find(x=>x.id===chId);if(!ch)return;
-  // Remove the remaining unpaid amount from cc.used
+  pendingConfirm={type:'ccCharge',ccId,chId};AM='deleteConfirm';render();
+}
+function confirmDeleteCCCharge(){
+  const pc=pendingConfirm;
+  const cc=DB.creditCards.find(x=>x.id===pc.ccId);if(!cc)return;
+  const ch=(cc.charges||[]).find(x=>x.id===pc.chId);if(!ch)return;
   const rem=ch.remaining??ch.amt;
   cc.used=Math.max(0,cc.used-rem);
-  // Remove the charge
-  cc.charges=cc.charges.filter(x=>x.id!==chId);
-  // Remove matching transactions (original charge + any payment transactions for this charge)
+  cc.charges=cc.charges.filter(x=>x.id!==pc.chId);
   DB.transactions=DB.transactions.filter(t=>
     !(t.name&&(t.name.includes('[CC:')&&t.name.startsWith(ch.desc))||
     (t.name&&t.name.startsWith('CC Pay: '+ch.desc)))
   );
-  sv();showToast('Charge deleted');render();
+  pendingConfirm=null;AM=null;sv();showToast('Charge deleted');render();
 }
 
 let swipeState={};
