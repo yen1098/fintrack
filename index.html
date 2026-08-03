@@ -879,14 +879,14 @@ function bHome(){
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#3B6D11">${balHidden?'••••':f$(Math.max(0,avail))}</span>
             <span style="font-size:11px;color:var(--sub);margin-left:8px">Limit: </span><span style="font-size:12px;color:#555">${f$(cc.limit)}</span>
           </div>
-          <div style="display:flex;align-items:center;position:relative;min-height:32px">
+          <div style="display:grid;grid-template-columns:auto 1fr;align-items:center;gap:8px">
             <div style="display:flex;gap:6px;flex-shrink:0">
               <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
               ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;
               if(cnt>0){return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;}
               return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()}
             </div>
-            <div style="position:absolute;right:0;display:flex;align-items:center;gap:5px">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px">
               ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:15px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">✕</button>`:'<span style="font-size:10px;color:#C0C0C0">tap rows to total</span>'})()}
             </div>
           </div>
@@ -903,7 +903,7 @@ function bHome(){
               const rem=ch.remaining??ch.amt;
               const isPartial=ch.remaining!==undefined&&ch.remaining<ch.amt;
               const isSel=!!(selectedCharges[cc.id]&&selectedCharges[cc.id].has(ch.id));
-              return `<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:.5px solid rgba(0,0,0,.04);border-radius:8px;background:${isSel?'#EAF3DE':'transparent'};cursor:pointer;transition:background .15s" onclick="toggleChargeSelect('${cc.id}','${ch.id}')">
+              return `<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:.5px solid rgba(0,0,0,.04);background:${isSel?'#F0FAF4':'transparent'};cursor:pointer;transition:background .15s" onclick="toggleChargeSelect('${cc.id}','${ch.id}')">
                 <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${isSel?'#3B6D11':'#ddd'};background:${isSel?'#3B6D11':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
                   ${isSel?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>':''}
                 </div>
