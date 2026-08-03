@@ -1050,29 +1050,40 @@ function bFunds(){
   const grandTotal=DB.funds.reduce((s,f)=>s+f.total,0);
   const grandSpent=DB.funds.reduce((s,f)=>s+f.spent,0);
   const grandRemaining=Math.max(0,grandTotal-grandSpent);
-  const grandPct=grandTotal>0?Math.max(0,Math.min(100,Math.round(grandRemaining/grandTotal*100))):0;
-  const barColor=grandPct>60?'#3B6D11':grandPct>25?'#EF9F27':'#E24B4A';
   const t3=new Date();t3.setMonth(t3.getMonth()-3);
   const ty=new Date();ty.setFullYear(ty.getFullYear()-1);
-  const hasXfers=DB.transferGroups.some(g=>g.transfers.length>0);
+
+  // Group funds by linked wallet for the stacked bar
+  const walletGroups={};
+  DB.funds.forEach(fd=>{
+    const wid=fd.linkedWalletId||'__none__';
+    if(!walletGroups[wid]){
+      const w=fd.linkedWalletId?gW(fd.linkedWalletId):null;
+      walletGroups[wid]={name:w?w.name:'Unlinked',color:w?(BC[w.bank]||BC.Other)[0]:'#ccc',remaining:0};
+    }
+    walletGroups[wid].remaining+=Math.max(0,(fd.total||0)-(fd.spent||0));
+  });
+  const wgEntries=Object.values(walletGroups).filter(e=>e.remaining>0);
+
+  // Build stacked storage bar segments
+  const stackedBar=grandRemaining>0?wgEntries.map(e=>{
+    const pct=Math.round(e.remaining/grandRemaining*100);
+    return `<div title="${esc(e.name)}: ${f$(e.remaining)}" style="height:100%;width:${pct}%;background:${e.color};transition:width .4s"></div>`;
+  }).join(''):'<div style="height:100%;width:100%;background:#e0e0e0"></div>';
+
+  // Legend
+  const legend=wgEntries.map(e=>`<div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:${e.color};flex-shrink:0"></div><span style="font-size:10px;color:#888">${esc(e.name)}: ${f$(e.remaining)}</span></div>`).join('');
+
   return `<div class="screen">
-    <div class="ab"><span class="abt">Funds</span><span class="abi" onclick="oM('fund')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ab"><span class="abt">Funds</span><div style="display:flex;gap:6px">${DB.funds.length?`<span class="abi" onclick="oM('fundSummary')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span>`:''}<span class="abi" onclick="oM('fund')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div></div>
     <div class="ct">
       <div class="card">
-        <div class="slbl">Overall fund balance</div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-          <span style="font-size:24px;font-weight:700;color:var(--text)">${f$(grandRemaining)}</span>
-          <span style="font-size:12px;color:var(--sub)">of ${f$(grandTotal)} saved</span>
+        <div style="font-size:10px;color:#ccc;font-weight:700;letter-spacing:.8px;margin-bottom:4px">TOTAL FUND BALANCE</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);letter-spacing:-.5px;margin-bottom:12px">${f$(grandRemaining)}</div>
+        <div style="background:#f0f0f0;border-radius:99px;height:14px;overflow:hidden;display:flex;margin-bottom:8px">
+          ${stackedBar}
         </div>
-        <div style="background:#e0e0e0;border-radius:99px;height:12px;overflow:hidden">
-          <div style="width:${grandPct}%;height:12px;border-radius:99px;background:${barColor};transition:width .4s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:5px">
-          <span style="font-size:11px;color:var(--sub)">${f$(grandSpent)} used</span>
-          <span style="font-size:11px;font-weight:700;color:${barColor}">${grandPct}% remaining</span>
-        </div>
-        ${hasXfers?`<div style="font-size:10px;color:var(--sub);margin-top:8px;text-align:center">See transfer summary in the Transfers tab</div>`:''}
-        ${DB.funds.length?`<button onclick="oM('fundSummary')" style="width:100%;margin-top:10px;padding:9px;background:#E6F1FB;color:#0C447C;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Fund Summary by Wallet</button>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${legend||'<span style="font-size:10px;color:#ccc">No funds yet</span>'}</div>
       </div>
       <div class="card">
         <div class="slbl">Envelopes</div>
@@ -1843,23 +1854,40 @@ function bModal(name){
       const byWallet={};
       DB.funds.forEach(fd=>{
         const key=fd.linkedWalletId||'__none__';
-        if(!byWallet[key])byWallet[key]={walletName:fd.linkedWalletId&&gW(fd.linkedWalletId)?gW(fd.linkedWalletId).name:'No wallet linked',funds:[],totalSaved:0,totalSpent:0,totalRemaining:0};
-        byWallet[key].funds.push(fd);byWallet[key].totalSaved+=fd.total||0;byWallet[key].totalSpent+=fd.spent||0;byWallet[key].totalRemaining+=(fd.total||0)-(fd.spent||0);
+        if(!byWallet[key])byWallet[key]={walletName:fd.linkedWalletId&&gW(fd.linkedWalletId)?gW(fd.linkedWalletId).name:'No wallet linked',walletColor:fd.linkedWalletId&&gW(fd.linkedWalletId)?(BC[gW(fd.linkedWalletId).bank]||BC.Other)[0]:'#ccc',funds:[],totalSaved:0,totalSpent:0,totalRemaining:0};
+        byWallet[key].funds.push(fd);byWallet[key].totalSaved+=fd.total||0;byWallet[key].totalSpent+=fd.spent||0;byWallet[key].totalRemaining+=Math.max(0,(fd.total||0)-(fd.spent||0));
       });
       const entries=Object.values(byWallet);
+      if(!window.fSumExp)window.fSumExp={};
       return W('Fund Summary by Wallet',`
-        <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Remaining funds grouped by linked wallet</div>
-        ${entries.map(e=>`<div style="margin-bottom:14px;border:.5px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden">
-          <div style="padding:10px 13px;background:#f8f8f8;border-bottom:.5px solid rgba(0,0,0,.06)">
-            <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(e.walletName)}</div>
-            <div style="display:flex;gap:12px;margin-top:4px">
-              <span style="font-size:11px;color:var(--sub)">Saved: <b style="color:var(--text)">${f$(e.totalSaved)}</b></span>
-              <span style="font-size:11px;color:var(--sub)">Used: <b style="color:#E24B4A">${f$(e.totalSpent)}</b></span>
-              <span style="font-size:11px;color:var(--sub)">Left: <b style="color:#3B6D11">${f$(e.totalRemaining)}</b></span>
+        ${entries.map((e,ei)=>{
+          const expanded=window.fSumExp[ei]!==false;
+          const pct=e.totalSaved>0?Math.round(e.totalRemaining/e.totalSaved*100):0;
+          return `<div style="margin-bottom:10px;border:.5px solid #e8e8e8;border-radius:14px;overflow:hidden">
+            <div style="padding:11px 13px;background:#fafafa;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="if(!window.fSumExp)window.fSumExp={};window.fSumExp[${ei}]=window.fSumExp[${ei}]===false?true:false;document.getElementById('fse${ei}').style.display=window.fSumExp[${ei}]===false?'none':'block'">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:10px;height:10px;border-radius:50%;background:${e.walletColor};flex-shrink:0"></div>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(e.walletName)}</div>
+                  <div style="font-size:11px;color:var(--sub)">Left: <b style="color:#4CAF82">${f$(e.totalRemaining)}</b> · ${pct}% of total</div>
+                </div>
+              </div>
+              <span style="color:#ccc;font-size:13px">${expanded?'▲':'▼'}</span>
             </div>
-          </div>
-          ${e.funds.map(fd=>{const rem=Math.max(0,(fd.total||0)-(fd.spent||0));const pct=fd.total>0?Math.round(rem/fd.total*100):0;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:.5px solid rgba(0,0,0,.04)"><span style="font-size:12px;color:#444">${esc(fd.name)}</span><div style="text-align:right"><div style="font-size:12px;font-weight:600;color:${pct<20?'#E24B4A':pct<50?'#EF9F27':'#3B6D11'}">${f$(rem)} left</div><div style="font-size:10px;color:var(--sub)">${pct}% remaining</div></div></div>`;}).join('')}
-        </div>`).join('')}
+            <div id="fse${ei}" style="display:${expanded?'block':'none'}">
+              ${e.funds.map(fd=>{const rem=Math.max(0,(fd.total||0)-(fd.spent||0));const p=fd.total>0?Math.round(rem/fd.total*100):0;const bc=p<20?'#E05C7A':p<50?'#EF9F27':'#4CAF82';return `<div style="padding:9px 13px;border-top:.5px solid #f0f0f0">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <span style="font-size:12px;color:#444">${esc(fd.name)}</span>
+                  <span style="font-size:12px;font-weight:700;color:${bc}">${f$(rem)}</span>
+                </div>
+                <div style="background:#f0f0f0;border-radius:99px;height:5px;overflow:hidden">
+                  <div style="width:${p}%;height:5px;border-radius:99px;background:${bc}"></div>
+                </div>
+                <div style="font-size:10px;color:#ccc;margin-top:2px">${p}% remaining of ${f$(fd.total||0)}</div>
+              </div>`;}).join('')}
+            </div>
+          </div>`;
+        }).join('')}
         <button class="btns" onclick="cM()">Close</button>`);}
 
     case 'deleteConfirm':{
@@ -2477,4 +2505,3 @@ initAuth();
 </script>
 </body>
 </html>
-
