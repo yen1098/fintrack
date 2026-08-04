@@ -785,7 +785,8 @@ function selectTmpl(id){
     if(check){check.style.borderColor='#4CAF82';check.style.background='#4CAF82';check.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>';}
   }
 }
-function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;pendingConfirm={type:'group',id};AM='deleteConfirm';render();}
+function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;pendingConfirm={type:'template',id};AM='deleteConfirm';render();}
+function confirmDeleteTemplate(){const pc=pendingConfirm;DB.transferGroups=DB.transferGroups.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Template deleted');render();}
 function selectAllCharges(ccId){
   const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
   const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
@@ -1199,7 +1200,7 @@ function bTransfers(){
         <div style="font-size:12px;color:#5B21B6;font-weight:600;margin-bottom:3px">ℹ️ How it works</div>
         <div style="font-size:11px;color:#6D28D9;line-height:1.5"><b>Fund allocation:</b> Transferred moves money to wallet + fund. No Done needed.<br><b>Regular transfer:</b> Transferred moves From→To. Done deducts from the To wallet (physically sent out).</div>
       </div>
-      <select onchange="tgMonthFilter=this.value;render()" style="width:100%;font-size:12px;padding:7px 10px;border:.5px solid rgba(0,0,0,.15);border-radius:10px;background:#fff;color:#333">
+      <select onchange="tgMonthFilter=this.value;render()" style="width:100%;font-size:12px;padding:7px 10px;border:.5px solid rgba(0,0,0,.15);border-radius:10px;background:#fff;color:#333;flex-shrink:0">
         <option value="all">All months</option>
         ${allMonths.map(m=>{
           const [yr,mo]=m.split('-');
@@ -1207,21 +1208,26 @@ function bTransfers(){
           return `<option value="${m}" ${tgMonthFilter===m?'selected':''}>${label}</option>`;
         }).join('')}
       </select>
-      <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
       ${filteredGroups.length?filteredGroups.map(g=>{
         const exp=tgExp[g.id];
         const tc=g.transfers.length;
         const dc=g.transfers.filter(t=>t.fundId?t.transferred:t.done).length;
         const totalAmt=g.transfers.reduce((s,t)=>s+t.amount,0);
         const allDone=tc>0&&g.transfers.every(t=>t.fundId?t.transferred:t.done);
-        return `<div class="tgcard" style="overflow:visible;margin-bottom:0">
-          <div class="tghdr" onclick="tgExp['${g.id}']=!tgExp['${g.id}'];render()" oncontextmenu="event.preventDefault();const n=prompt('Rename group:','${esc(g.name)}');if(n&&n.trim()){const gr=DB.transferGroups.find(x=>x.id==='${g.id}');if(gr){gr.name=n.trim();sv();render();}}" ontouchstart="(function(){tgHoldTimer=setTimeout(()=>{const n=prompt('Rename group:','${esc(g.name)}');if(n&&n.trim()){const gr=DB.transferGroups.find(x=>x.id==='${g.id}');if(gr){gr.name=n.trim();sv();render();}}},600);})();" ontouchend="clearTimeout(tgHoldTimer)" ontouchmove="clearTimeout(tgHoldTimer)">
-            <div>
+        // Trail dates
+        const createdDate=g.createdAt?new Date(g.createdAt).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}):'';
+        const lastCompDate=g.lastCompleted?new Date(g.lastCompleted).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}):'';
+        const trail=(createdDate?'Created '+createdDate:'')+(lastCompDate?' · Completed '+lastCompDate:'');
+        return `<div class="tgcard" style="overflow:visible;margin-bottom:0;min-width:0">
+          <div class="tghdr" onclick="tgExp['${g.id}']=!tgExp['${g.id}'];render()" oncontextmenu="event.preventDefault();const n=prompt('Rename group:','${esc(g.name)}');if(n&&n.trim()){const gr=DB.transferGroups.find(x=>x.id==='${g.id}');if(gr){gr.name=n.trim();sv();render();}}" ontouchstart="tgHoldTimer=setTimeout(()=>{const n=prompt('Rename group:','${esc(g.name)}');if(n&&n.trim()){const gr=DB.transferGroups.find(x=>x.id==='${g.id}');if(gr){gr.name=n.trim();sv();render();}}},700)" ontouchend="clearTimeout(tgHoldTimer)" ontouchmove="clearTimeout(tgHoldTimer)">
+            <div style="min-width:0;flex:1">
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(g.name)}</span>
                 ${g.isTemplate?'<span class="badge bpur">Template</span>':''}
               </div>
               <div style="font-size:11px;color:var(--sub);margin-top:2px">${tc} item${tc!==1?'s':''} · ${f$(totalAmt)} · ${dc}/${tc} done</div>
+              ${trail?`<div style="font-size:10px;color:#ccc;margin-top:2px">${trail}</div>`:''}
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               ${allDone?'<span class="badge bok">✓ All done</span>':''}
@@ -1315,6 +1321,8 @@ function mT(gid,tid){
   t.transferred=true;
   if(fw)addTx({type:'expense',name:`Transfer: ${t.title||'Group transfer'} → ${tw?tw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:t.note||''});
   if(tw)addTx({type:'income',name:`Transfer: ${t.title||'Group transfer'} ← ${fw?fw.name:'?'}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||''});
+  // Stamp lastCompleted if all done
+  if(g.transfers.every(x=>x.fundId?x.transferred:x.done)){g.lastCompleted=new Date().toISOString();}
   sv();showToast('Transferred');render();
 }
 
@@ -1325,6 +1333,7 @@ function mD(gid,tid){
   if(tw){tw.currentBalance-=t.amount;tw.actualBalance-=t.amount;}
   t.done=true;
   if(tw)addTx({type:'expense',name:`Done: ${t.title||'Group transfer'} sent from ${tw.name}`,amount:t.amount,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:t.note||'Physically sent'});
+  if(g.transfers.every(x=>x.fundId?x.transferred:x.done)){g.lastCompleted=new Date().toISOString();}
   sv();showToast('Marked as Done ✓');render();
 }
 
@@ -1943,10 +1952,10 @@ function bModal(name){
             </div>
           </div>
         </div>`;}
-      const isF=pc.type==='fund',isG=pc.type==='group',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource',isCCCh=pc.type==='ccCharge',isClear=pc.type==='clearArchived';
+      const isF=pc.type==='fund',isG=pc.type==='group',isTmpl=pc.type==='template',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource',isCCCh=pc.type==='ccCharge',isClear=pc.type==='clearArchived';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
-      const grp=isG?DB.transferGroups.find(x=>x.id===pc.id):null;
-      const grpX=(!isF&&!isG&&!isTk&&!isW&&!isCC&&!isR&&!isCCCh&&!isClear)?DB.transferGroups.find(x=>x.id===pc.gid):null;
+      const grp=(isG||isTmpl)?DB.transferGroups.find(x=>x.id===pc.id):null;
+      const grpX=(!isF&&!isG&&!isTmpl&&!isTk&&!isW&&!isCC&&!isR&&!isCCCh&&!isClear)?DB.transferGroups.find(x=>x.id===pc.gid):null;
       const xItem=grpX?grpX.transfers.find(x=>x.id===pc.id):null;
       const tsk=isTk?DB.tasks.find(x=>x.id===pc.id):null;
       const res=isR?DB.resources.find(x=>x.id===pc.id):null;
@@ -1954,9 +1963,9 @@ function bModal(name){
       const ccForCharge=isCCCh?DB.creditCards.find(x=>x.id===pc.ccId):null;
       const chRecord=isCCCh&&ccForCharge?(ccForCharge.charges||[]).find(x=>x.id===pc.chId):null;
       const ccForClear=isClear?DB.creditCards.find(x=>x.id===pc.ccId):null;
-      const label=isCCCh?(chRecord?chRecord.desc:'this charge'):isClear?'all archived charges'+(ccForClear?' from '+ccForClear.name:''):isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isR?(res?res.label:'this resource'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
-      const kind=isCCCh?'CC Charge':isClear?'Archived Charges':isW?'Wallet':isCC?'Credit Card':isR?'Resource':isF?'Fund':isG?'Transfer Group':isTk?'Task':isN?'Note':'Transfer Item';
-      const fn=isCCCh?'confirmDeleteCCCharge':isClear?'confirmClearArchived':isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isR?'confirmDeleteResource':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
+      const label=isCCCh?(chRecord?chRecord.desc:'this charge'):isClear?'all archived charges'+(ccForClear?' from '+ccForClear.name:''):isW?(pc.name||'this wallet'):isCC?(pc.name||'this card'):isR?(res?res.label:'this resource'):isF?(fd?fd.name:'this fund'):isG?(grp?grp.name:'this group'):isTmpl?(grp?grp.name:'this template'):isTk?(tsk?tsk.name:'this task'):isN?ntitle:(xItem?xItem.title:'this transfer item');
+      const kind=isCCCh?'CC Charge':isClear?'Archived Charges':isW?'Wallet':isCC?'Credit Card':isR?'Resource':isF?'Fund':isG?'Transfer Group':isTmpl?'Template':isTk?'Task':isN?'Note':'Transfer Item';
+      const fn=isCCCh?'confirmDeleteCCCharge':isClear?'confirmClearArchived':isW?'confirmDeleteWallet':isCC?'confirmDeleteCreditCard':isR?'confirmDeleteResource':isF?'confirmDeleteFund':isG?'confirmDeleteGroup':isTmpl?'confirmDeleteTemplate':isTk?'confirmDeleteTask':isN?'confirmDeleteNote':'confirmDeleteXfer';
       return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
           <div class="confirm-box">
