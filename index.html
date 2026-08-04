@@ -72,7 +72,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .mclose{cursor:pointer;color:#ddd;font-size:26px;line-height:1;padding:0 4px;font-weight:300}
 .field{margin-bottom:11px}
 .field label{font-size:11px;color:#bbb;display:block;margin-bottom:4px;font-weight:600;letter-spacing:.3px}
-.field input,.field select,.field textarea{width:100%;font-size:14px;padding:10px 13px;border:1.5px solid #f0e0e8;border-radius:12px;background:#FFFAFA;color:#2D2D2D;appearance:none;-webkit-appearance:none;font-family:inherit}
+.field input,.field select,.field textarea{width:100%;font-size:14px;padding:10px 13px;border:1.5px solid #e8e8e8;border-radius:12px;background:#fff;color:#2D2D2D;appearance:none;-webkit-appearance:none;font-family:inherit}
 .field textarea{height:58px;resize:none}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#4CAF82;background:#fff}
 .btnp{width:100%;padding:13px;background:#4CAF82;color:#fff;border:none;border-radius:99px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
@@ -1674,11 +1674,13 @@ function bModal(name){
       <div class="field"><label>Item / description *</label><input id="mn" type="text" placeholder="e.g. SM Supermarket" autocomplete="off"></div>
       <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0" oninput="updateSplitCalc()"></div>
       <div class="field"><label>Category</label><select id="mc"><option>Food</option><option>Utilities</option><option>Transport</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Other</option></select></div>
-      <div class="field"><label>From wallet *</label><select id="mw">${wO||'<option value="">Add a wallet first</option>'}</select></div>
-      <div class="field"><label>Charge to fund (optional)</label><select id="mf">${fO}</select></div>
+      <div style="background:#f8f8f8;border-radius:12px;padding:12px;margin-bottom:11px">
+        <div style="font-size:11px;color:#bbb;font-weight:700;letter-spacing:.3px;margin-bottom:10px">SOURCE — fill any one</div>
+        <div class="field" style="margin-bottom:8px"><label>From wallet</label><select id="mw"><option value="">— none —</option>${wO}</select></div>
+        <div class="field" style="margin-bottom:8px"><label>Charge to fund</label><select id="mf"><option value="">— none —</option>${DB.funds.map(f=>{const r=Math.max(0,(f.total||0)-(f.spent||0));return `<option value="${f.id}">${esc(f.name)} (${f$(r)} left)</option>`;}).join('')}</select></div>
+        <div class="field" style="margin-bottom:0"><label>Charge to credit card</label><select id="mcc"><option value="">— none —</option>${DB.creditCards.map(cc=>`<option value="${cc.id}">${esc(cc.name)}</option>`).join('')}</select></div>
+      </div>
       <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
-
-      <!-- Split bill toggle -->
       <div style="border:.5px solid rgba(0,0,0,.1);border-radius:12px;padding:12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSplitSection()">
           <div style="display:flex;align-items:center;gap:8px">
@@ -1694,7 +1696,6 @@ function bModal(name){
           <div id="split-calc" style="background:#EAF3DE;border-radius:9px;padding:10px;font-size:12px;color:#27500A;font-weight:600;text-align:center;display:none"></div>
         </div>
       </div>
-
       <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'income': return W('Add Income',`
@@ -2136,21 +2137,34 @@ function toggleSplitSection(){
 }
 
 function svExp(){
-  const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),no=vv('mno');
-  if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
-  const wd=gW(w);if(!wd)return;
+  const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),ccId=vv('mcc'),no=vv('mno');
+  if(!n||!a)return alert('Please fill in name and amount');
+  if(!w&&!fi&&!ccId)return alert('Please select a wallet, fund, or credit card as the source');
 
-  // Check for split people
+  // CC charge path — doesn't touch wallet or To Spend
+  if(ccId&&!w){
+    const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return alert('Credit card not found');
+    const chId=uid();
+    if(!cc.charges)cc.charges=[];
+    cc.charges.unshift({id:chId,desc:n,amt:a,remaining:a,date:td(),rawDate:new Date().toISOString(),cat:c});
+    cc.used+=a;
+    addTx({type:'expense',name:n+' [CC:'+cc.name+']',amount:a,cat:c,walletId:cc.id,walletName:cc.name,note:no,_unlinkToSpend:true});
+    sv();cM();goTo('home');showToast('Charged to '+cc.name);
+    return;
+  }
+
+  // Wallet/fund path
+  const wd=w?gW(w):null;
+  if(w&&!wd)return alert('Wallet not found');
+
   const splitNames=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
   const isSplit=splitNames.length>0;
   const totalPeople=isSplit?splitNames.length+1:1;
   const myShare=isSplit?Math.round((a/totalPeople)*100)/100:a;
   const theirShare=isSplit?Math.round((a/totalPeople)*100)/100:0;
 
-  // Deduct FULL amount from wallet (you paid for everyone upfront)
-  wd.currentBalance-=a;wd.actualBalance-=a;
+  if(wd){wd.currentBalance-=a;wd.actualBalance-=a;}
 
-  // Charge to fund (my share only — their share comes back via borrowing)
   if(fi){
     const fd=DB.funds.find(x=>x.id===fi);
     if(fd){
@@ -2161,26 +2175,13 @@ function svExp(){
     }
   }
 
-  // Log my share as expense (this affects To Spend)
-  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:w,walletName:wd.name,note:no+(isSplit?' · Split '+totalPeople+' ways':'')});
+  // If no wallet, expense still logs but walletId is blank (fund-only expense)
+  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:w||'',walletName:wd?wd.name:(fi?DB.funds.find(x=>x.id===fi)?.name||'Fund':''),note:no+(isSplit?' · Split '+totalPeople+' ways':'')});
 
-  // Create borrowing records + log lent amounts (wallet already fully deducted above)
   if(isSplit){
     splitNames.forEach(personName=>{
-      // Log the lent portion as a transfer-out (walletId:null so it doesn't affect To Spend again)
-      addTx({type:'expense',name:'Lent for split: '+n+' ('+personName+')',amount:theirShare,cat:'Other',walletId:null,walletName:wd.name,note:'Lent — split bill'});
-      DB.borrowings.push({
-        id:uid(),
-        name:personName,
-        total:theirShare,
-        paid:0,
-        dir:'lent',
-        walletId:w,
-        walletName:wd.name,
-        due:'',
-        payments:[],
-        note:'Split bill: '+n
-      });
+      if(wd)addTx({type:'expense',name:'Lent for split: '+n+' ('+personName+')',amount:theirShare,cat:'Other',walletId:null,walletName:wd.name,note:'Lent — split bill'});
+      DB.borrowings.push({id:uid(),name:personName,total:theirShare,paid:0,dir:'lent',walletId:w||'',walletName:wd?wd.name:'',due:'',payments:[],note:'Split bill: '+n});
     });
     showToast('Expense split '+totalPeople+' ways ✓');
   }
