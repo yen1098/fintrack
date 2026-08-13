@@ -157,6 +157,35 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 </div>
 
 <script>
+// Save modal inputs when app is hidden, restore after render
+function saveModalDraft(){
+  if(!AM)return;
+  const draft={};
+  document.querySelectorAll('.modal input,.modal select,.modal textarea').forEach(el=>{
+    if(el.id)draft[el.id]=el.value;
+  });
+  sessionStorage.setItem('ft-modal-draft',JSON.stringify({modal:AM,draft}));
+}
+function restoreModalDraft(){
+  try{
+    const saved=JSON.parse(sessionStorage.getItem('ft-modal-draft')||'null');
+    if(!saved||saved.modal!==AM)return;
+    Object.entries(saved.draft).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el&&el.value===''||el&&el.tagName==='TEXTAREA')el.value=val;
+      else if(el&&el.tagName==='SELECT'){
+        // Try to set select value
+        const opt=[...el.options].find(o=>o.value===val);
+        if(opt)el.value=val;
+      }
+    });
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden')saveModalDraft();
+  if(document.visibilityState==='visible'&&AM){restoreModalDraft();}
+});
+
 const BC={
   'BDO':['#003F8A','#fff'],'BPI':['#B22222','#fff'],'Metrobank':['#003366','#fff'],
   'UnionBank':['#E8621A','#fff'],'Security Bank':['#CC0000','#fff'],'Landbank':['#006400','#fff'],
@@ -221,8 +250,16 @@ async function initAuth(){
   supa.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
       currentUser=session.user;
-      await loadFromCloud();
-      showApp();
+      // Only do full showApp on first sign-in, not on token refresh
+      const appEl=document.getElementById('app');
+      const alreadyShowing=appEl&&appEl.style.display!=='none';
+      if(!alreadyShowing){
+        await loadFromCloud();
+        showApp();
+      } else {
+        // Token refresh — silently sync in background without re-rendering
+        currentUser=session.user;
+      }
     } else if(event==='SIGNED_OUT'){
       currentUser=null;
       showLogin();
@@ -305,8 +342,10 @@ function dbForStorage(){
 
 function sv(){
   try{
+    const now=Date.now();
     localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
     localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
+    localStorage.setItem('ft-updated',now.toString());
   }catch(e){console.log('localStorage save error:',e);}
   const ind=document.getElementById('sync-indicator');
   const lbl=document.getElementById('sync-label');
@@ -323,8 +362,9 @@ function sv(){
 async function saveToCloud(){
   if(!currentUser)return;
   try{
-    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId});
-    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload},{onConflict:'user_id'});
+    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
+    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    localStorage.setItem('ft-updated',Date.now().toString());
   }catch(e){console.log('Cloud save error:',e);}
 }
 
@@ -349,26 +389,28 @@ async function forceSyncToCloud(){
 async function loadFromCloud(){
   if(!currentUser)return;
   try{
-    const {data,error}=await supa.from('fintrack_data').select('data').eq('user_id',currentUser.id).single();
+    const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
     if(data&&data.data){
       const parsed=JSON.parse(data.data);
       const cloudDB=parsed.db||{};
-      // Compare with local — whichever has more transactions wins
+      const cloudUpdated=data.updated_at?new Date(data.updated_at).getTime():0;
+      // Compare timestamps — newest wins
       const localRaw=localStorage.getItem('fintrack2');
       const localDB=localRaw?JSON.parse(localRaw):{};
-      const cloudTxCount=(cloudDB.transactions||[]).length;
-      const localTxCount=(localDB.transactions||[]).length;
-      if(localTxCount>cloudTxCount){
-        // Local has more data — use local and push to cloud
+      const localUpdated=localStorage.getItem('ft-updated')?parseInt(localStorage.getItem('ft-updated')):0;
+      if(localUpdated>cloudUpdated){
+        // Local is newer — push to cloud
         DB=localDB;
         defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
         migrateDB();
         await saveToCloud();
       } else {
-        // Cloud has more or equal — use cloud
+        // Cloud is newer or equal — use cloud, update local
         DB=cloudDB;
         defaultFromWalletId=parsed.defaultWallet||null;
         migrateDB();
+        localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
+        localStorage.setItem('ft-updated',cloudUpdated.toString());
       }
     } else {
       // No cloud data yet — push local up
@@ -594,18 +636,24 @@ function render(){
   if(isDesktop())renderDesktopSidebar();
   if(isDesktop())renderDesktopRight();
   const mhEl=document.getElementById('mh');
-  if(AM==='confirm'||AM==='deleteConfirm'){
-    mhEl.innerHTML=AM==='confirm'?bConfirmModal():bModal('deleteConfirm');
-  } else if(AM==='advancedTx'){
-    mhEl.innerHTML=bAdvancedTxModal();
-  } else {
-    mhEl.innerHTML=AM?`<div class="overlay" id="ov" onclick="if(event.target.id==='ov')cM()">${bModal(AM)}</div>`:'';
+  // Don't re-render modal if user is actively typing in it
+  const activeEl=document.activeElement;
+  const typingInModal=activeEl&&mhEl&&mhEl.contains(activeEl)&&(activeEl.tagName==='INPUT'||activeEl.tagName==='TEXTAREA'||activeEl.tagName==='SELECT');
+  if(!typingInModal){
+    if(AM==='confirm'||AM==='deleteConfirm'){
+      mhEl.innerHTML=AM==='confirm'?bConfirmModal():bModal('deleteConfirm');
+    } else if(AM==='advancedTx'){
+      mhEl.innerHTML=bAdvancedTxModal();
+    } else {
+      mhEl.innerHTML=AM?`<div class="overlay" id="ov" onclick="if(event.target.id==='ov')cM()">${bModal(AM)}</div>`:'';
+    }
   }
   document.querySelectorAll('.ni').forEach(n=>{
     const t=n.getAttribute('dt');
     const sub=['tasks','borrowing','resources','bonuses','ledger','notes'];
     n.classList.toggle('active',t===CS||(t==='more'&&sub.includes(CS)));
   });
+  if(AM)setTimeout(restoreModalDraft,30);
 }
 
 function nav(){
@@ -863,7 +911,7 @@ function bHome(){
     const barC=usedPct>80?'#E24B4A':usedPct>50?'#EF9F27':'#3B6D11';
     const ccCl=BC[cc.bank]||BC.Other;
     const charges=cc.charges||[];
-    const now30=new Date();now30.setDate(now30.getDate()-30);
+    const now30=new Date();now30.setDate(now30.getDate()-7);
     charges.forEach(ch=>{const isPaid=(ch.remaining??ch.amt)<=0;if(isPaid&&!ch._archived&&ch.rawDate&&new Date(ch.rawDate)<now30)ch._archived=true;});
     const unpaid=charges.filter(ch=>(ch.remaining??ch.amt)>0);
     const recentPaid=charges.filter(ch=>(ch.remaining??ch.amt)<=0&&!ch._archived);
@@ -931,7 +979,7 @@ function bHome(){
             }).join('')}
           </div>`:''}
           ${recentPaid.length?`<div style="margin-top:4px">
-            <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid (last 30 days)</div>
+            <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Paid (last 7 days)</div>
             ${recentPaid.map(ch=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid rgba(0,0,0,.03)">
               <div style="flex:1;min-width:0">
                 <div style="font-size:11px;color:#aaa;text-decoration:line-through">${esc(ch.desc)}</div>
@@ -1659,7 +1707,7 @@ function oM(n,x){
   if(n==='ccCharge'||n==='ccPay'||n==='ccPayCharge')aCreditCard=x||aCreditCard;
   render();
 }
-function cM(){AM=null;render();}
+function cM(){AM=null;sessionStorage.removeItem('ft-modal-draft');render();}
 
 function bModal(name){
   const wO=DB.wallets.map(w=>`<option value="${w.id}">${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
@@ -2172,11 +2220,20 @@ function svExp(){
       fd.spent+=myShare;
       if(!fd.uses)fd.uses=[];
       fd.uses.unshift({amt:myShare,desc:n+(isSplit?' (my share)':''),date:td(),rawDate:new Date().toISOString()});
+      // If no wallet selected directly, deduct from fund's linked wallet
+      if(!wd&&fd.linkedWalletId){
+        const lw=gW(fd.linkedWalletId);
+        if(lw){lw.currentBalance-=myShare;lw.actualBalance-=myShare;}
+      }
     }
   }
 
-  // If no wallet, expense still logs but walletId is blank (fund-only expense)
-  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:w||'',walletName:wd?wd.name:(fi?DB.funds.find(x=>x.id===fi)?.name||'Fund':''),note:no+(isSplit?' · Split '+totalPeople+' ways':'')});
+  // Log transaction — use linked wallet if no direct wallet
+  const fd2=fi?DB.funds.find(x=>x.id===fi):null;
+  const linkedW=fd2&&!wd&&fd2.linkedWalletId?gW(fd2.linkedWalletId):null;
+  const txWalletId=w||(linkedW?linkedW.id:'');
+  const txWalletName=wd?wd.name:linkedW?linkedW.name:(fd2?fd2.name:'');
+  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:c,walletId:txWalletId,walletName:txWalletName,note:no+(isSplit?' · Split '+totalPeople+' ways':'')+(fi?' · via fund: '+(fd2?fd2.name:''):'')});
 
   if(isSplit){
     splitNames.forEach(personName=>{
@@ -2356,22 +2413,34 @@ function svCCPay(){
     addTx({type:'expense',name:'CC Payment: '+cc.name,amount:amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:'Credit card bill payment via fund: '+fd.name});
   }
 
-  // Mark individual charges as paid — distribute payment across unpaid charges oldest first
+  // Mark individual charges as paid
+  const sel=selectedCharges[aCreditCard];
+  const hasSelection=sel&&sel.size>0;
   let remaining=amt;
-  const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
-  for(const ch of unpaid){
-    if(remaining<=0)break;
-    const chargeRem=ch.remaining??ch.amt;
-    if(remaining>=chargeRem){
-      ch.remaining=0;
-      remaining-=chargeRem;
-    } else {
-      ch.remaining=Math.round((chargeRem-remaining)*100)/100;
-      remaining=0;
+
+  if(hasSelection){
+    // Pay selected: only mark selected charges as paid, in order
+    const selectedUnpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0&&sel.has(ch.id));
+    for(const ch of selectedUnpaid){
+      if(remaining<=0)break;
+      const chargeRem=ch.remaining??ch.amt;
+      if(remaining>=chargeRem){ch.remaining=0;remaining-=chargeRem;}
+      else{ch.remaining=Math.round((chargeRem-remaining)*100)/100;remaining=0;}
+    }
+    // Clear selection after paying
+    selectedCharges[aCreditCard]=new Set();
+  } else {
+    // Pay all: distribute oldest-first across all unpaid
+    const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
+    for(const ch of unpaid){
+      if(remaining<=0)break;
+      const chargeRem=ch.remaining??ch.amt;
+      if(remaining>=chargeRem){ch.remaining=0;remaining-=chargeRem;}
+      else{ch.remaining=Math.round((chargeRem-remaining)*100)/100;remaining=0;}
     }
   }
 
-  sv();cM();showToast('Payment recorded');goTo('home');
+  sv();cM();showToast(hasSelection?'Selected charges paid':'Payment recorded');goTo('home');
 }
 
 function svCCPayCharge(){
