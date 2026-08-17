@@ -88,19 +88,23 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 [contenteditable].empty{position:relative}
 /* ── Desktop layout ── */
 @media(min-width:768px){
-  body{background:#F2F2F7;overflow:auto}
-  #app{max-width:100%;flex-direction:row;height:100vh;background:#F2F2F7}
-  #desktop-sidebar{width:220px;min-width:220px;background:#F2F2F7;display:flex;flex-direction:column;padding:28px 0 20px;flex-shrink:0;height:100vh;position:sticky;top:0}
-  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F2F2F7}
+  body{background:#F4F6F9;overflow:auto}
+  #app{max-width:100%;flex-direction:row;height:100vh;background:#F4F6F9}
+  #desktop-sidebar{width:200px;min-width:200px;background:#fff;display:flex;flex-direction:column;padding:20px 0;flex-shrink:0;height:100vh;position:sticky;top:0;border-right:.5px solid #EBEBEB}
+  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F4F6F9}
   #sh{flex:1;overflow:hidden}
-  #desktop-right{width:230px;min-width:230px;padding:20px 14px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;border-left:.5px solid #f0e0e8}
+  #desktop-right{width:260px;min-width:260px;padding:20px 16px 20px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
   #desktop-right::-webkit-scrollbar{display:none}
   .bn{display:none!important}
-  .modal{max-width:480px;border-radius:26px}
-  .overlay{align-items:center}
-  .ct{padding:20px 20px;gap:12px}
+  .modal{max-width:480px;border-radius:18px}
+  .overlay{align-items:center;background:rgba(0,0,0,.25)}
+  .ct{padding:20px 24px;gap:14px}
   .screen{max-width:none}
+  .ab{padding:20px 24px 10px;background:#F4F6F9;border-bottom:none}
+  .abt{font-size:22px;font-weight:600;color:#1A1A2E;letter-spacing:-.5px}
+  .abi{color:#999}
   .ab>span.abi:first-of-type{display:none}
+  .card{border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:.5px solid #EBEBEB}
 }
 .ct{scrollbar-width:none;-ms-overflow-style:none}
 .ct::-webkit-scrollbar{display:none}
@@ -306,25 +310,34 @@ function renderDesktopSidebar(){
     {s:'more',    icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',label:'More'},
   ];
   sidebar.innerHTML=`
-    <div style="font-size:20px;font-weight:800;color:#4CAF82;letter-spacing:-0.5px;padding:0 20px 24px">FinTrack</div>
-    <div style="flex:1;overflow-y:auto">
+    <div style="padding:0 16px 20px;border-bottom:.5px solid #EBEBEB;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:28px;height:28px;border-radius:8px;background:#1A1A2E;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <span style="font-size:15px;font-weight:700;color:#1A1A2E;letter-spacing:-.3px">FinTrack</span>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 8px">
       ${navItems.map(n=>{
         const active=n.s===CS||(n.s==='more'&&sub.includes(CS));
-        return `<div onclick="goTo('${n.s}')" style="display:flex;align-items:center;gap:12px;padding:11px 20px;cursor:pointer;border-radius:10px;margin:1px 8px;background:${active?'rgba(255,143,171,.2)':'transparent'};color:${active?'#C44569':'#aaa'}">
-          <span style="flex-shrink:0">${n.icon}</span>
-          <span style="font-size:13px;font-weight:${active?'700':'400'}">${n.label}</span>
-          ${n.badge>0?`<span style="margin-left:auto;background:#E84393;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px">${n.badge}</span>`:''}
+        return `<div onclick="goTo('${n.s}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-radius:10px;margin-bottom:2px;background:${active?'#F4F6F9':'transparent'};color:${active?'#1A1A2E':'#9CA3AF'};transition:all .15s">
+          <span style="flex-shrink:0;color:${active?'#1A1A2E':'#9CA3AF'}">${n.icon}</span>
+          <span style="font-size:13px;font-weight:${active?'600':'400'};letter-spacing:-.1px">${n.label}</span>
+          ${n.badge>0?`<span style="margin-left:auto;background:#E05C7A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px;min-width:16px;text-align:center">${n.badge}</span>`:''}
         </div>`;
       }).join('')}
     </div>
-    <div style="padding:16px 20px 0;border-top:.5px solid rgba(196,69,105,.15);margin-top:12px">
-      <div style="font-size:10px;color:#bbb;margin-bottom:3px">Signed in as</div>
-      <div style="font-size:12px;color:#888;font-weight:500;word-break:break-all;margin-bottom:8px">${currentUser?currentUser.email||'You':''}</div>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-        <div id="sync-indicator" style="width:7px;height:7px;border-radius:50%;background:#4CAF82;flex-shrink:0"></div>
-        <span style="font-size:10px;color:#bbb" id="sync-label">Synced</span>
+    <div style="padding:12px 16px 0;border-top:.5px solid #EBEBEB;margin-top:8px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+        <div style="width:30px;height:30px;border-radius:50%;background:#1A1A2E;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${currentUser?(currentUser.email||'?')[0].toUpperCase():'?'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentUser?currentUser.email||'You':''}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:1px">
+            <div id="sync-indicator" style="width:6px;height:6px;border-radius:50%;background:#4CAF82;flex-shrink:0"></div>
+            <span style="font-size:10px;color:#9CA3AF" id="sync-label">Synced</span>
+          </div>
+        </div>
       </div>
-      <button onclick="pendingConfirm={type:'signout'};AM='deleteConfirm';render()" style="width:100%;padding:8px;background:#f0f0f0;color:#4CAF82;border:none;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Sign out</button>
+      <button onclick="pendingConfirm={type:'signout'};AM='deleteConfirm';render()" style="width:100%;padding:7px;background:#F4F6F9;color:#6B7280;border:.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Sign out</button>
     </div>`;
 }
 
@@ -505,125 +518,237 @@ const SVGMAP={
 };
 
 function renderDesktopRight(){
-  const panel=document.getElementById('desktop-right');
-  if(!panel)return;
-
-  // Recent transactions log (last 8)
-  const recentTx=DB.transactions.slice(0,8);
-
-  // Pending tasks
+  const panel=document.getElementById('desktop-right');if(!panel)return;
   const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+3);
+  const recentTx=DB.transactions.slice(0,8);
   const pendingTasks=DB.tasks.filter(t=>!t.done);
   const visibleTasks=pendingTasks.slice(0,5);
-
-  // Pending transfer group items
+  const due=tasksDueSoon();
   const pendingXfers=[];
-  DB.transferGroups.forEach(g=>{
-    g.transfers.forEach(t=>{
-      if(!t.transferred){
-        const fw=gW(t.fromId);const tw=gW(t.toId);
-        pendingXfers.push({title:t.title,amount:t.amount,from:fw?fw.name:'?',to:tw?tw.name:'?'});
-      }
-    });
-  });
-
-  const txColors={Food:'#EAF3DE',Utilities:'#FCEBEB',Transport:'#E6F1FB',Shopping:'#EAF3DE',Bills:'#FCEBEB',Entertainment:'#EEEDFE',Fund:'#FAEEDA',Bonus:'#FAEEDA',Transfer:'#EDE9FE',Other:'#f0f0f0'};
+  DB.transferGroups.forEach(g=>g.transfers.forEach(t=>{
+    if(!(t.fundId?t.transferred:t.done)){
+      const fw=t.fromWalletId?gW(t.fromWalletId):null;
+      const tw=t.toWalletId?gW(t.toWalletId):null;
+      pendingXfers.push({title:t.title||'Transfer',amount:t.amount,from:fw?fw.name:'?',to:tw?tw.name:(t.fundId?'Fund':'?')});
+    }
+  }));
+  const txColors={Food:'#EAF3DE',Utilities:'#FDEAEA',Transport:'#E6F1FB',Shopping:'#EAF3DE',Bills:'#FDEAEA',Entertainment:'#EDE9FE',Fund:'#FEF3C7',Bonus:'#FEF3C7',Transfer:'#EDE9FE',Other:'#F3F4F6'};
+  const txIcons={Food:'#27500A',Utilities:'#C0192C',Transport:'#0C447C',Shopping:'#27500A',Bills:'#C0192C',Entertainment:'#5B21B6',Fund:'#92400E',Bonus:'#92400E',Transfer:'#5B21B6',Other:'#6B7280'};
 
   panel.innerHTML=`
-    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px;scrollbar-width:none">
-
-      <!-- RECENT LOG -->
+    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-bottom:16px;scrollbar-width:none">
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px">RECENT LOG</div>
-        </div>
-        <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">RECENT LOG</div>
+        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
           ${recentTx.length?recentTx.map(t=>{
-            const bg=txColors[t.cat]||'#f0f0f0';
+            const bg=txColors[t.cat]||'#F3F4F6';
+            const ic=txIcons[t.cat]||'#6B7280';
             const isExp=t.type==='expense';
-            return `<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:.5px solid rgba(0,0,0,.04)">
-              <div style="width:28px;height:28px;border-radius:8px;background:${bg};flex-shrink:0"></div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
-                <div style="font-size:10px;color:var(--sub)">${esc(t.date)}${t.walletName?' · '+esc(t.walletName):''}</div>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
-                <div style="font-size:11px;font-weight:700;color:${isExp?'#E24B4A':'#3B6D11'}">${isExp?'−':'+'}${f$(t.amount)}</div>
-                ${t._snap?`<button onclick="undoTx('${t.id}')" style="padding:2px 7px;background:#EDE9FE;color:#5B21B6;border:none;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer">↩ undo</button>`:''}
-              </div>
-            </div>`;
-          }).join(''):`<div style="padding:14px;font-size:12px;color:var(--sub);text-align:center">No transactions yet</div>`}
+            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid #F9FAFB">'
+              +'<div style="width:30px;height:30px;border-radius:9px;background:'+bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+              +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="'+ic+'" stroke-width="2.5" stroke-linecap="round"><path d="'+(isExp?'M5 12h14':'M12 5v14M5 12h14')+'"/></svg></div>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.name)+'</div>'
+              +'<div style="font-size:10px;color:#9CA3AF;margin-top:1px">'+esc(t.date)+(t.walletName?' \u00B7 '+esc(t.walletName):'')+'</div></div>'
+              +'<div style="flex-shrink:0;text-align:right">'
+              +'<div style="font-size:12px;font-weight:700;color:'+(isExp?'#E05C7A':'#4CAF82')+'">'+(isExp?'\u2212':'+')+f$(t.amount)+'</div>'
+              +(t._snap?'<button onclick="undoTx(\''+t.id+'\')" style="padding:1px 6px;background:#F3F4F6;color:#6B7280;border:none;border-radius:5px;font-size:9px;cursor:pointer;margin-top:2px">\u21A9 undo</button>':'')
+              +'</div></div>';
+          }).join(''):'<div style="padding:16px;font-size:12px;color:#9CA3AF;text-align:center">No transactions yet</div>'}
         </div>
       </div>
-
-      <!-- REMINDERS -->
-      <div>
-        <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px;margin-bottom:8px">REMINDERS</div>
-        ${pendingTasks.length?`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:8px">
-          <div style="padding:9px 12px 4px;border-bottom:.5px solid rgba(0,0,0,.05)">
-            <div style="font-size:10px;font-weight:700;color:#0C447C;display:flex;align-items:center;gap:5px">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>TASKS
-            </div>
-          </div>
+      ${pendingTasks.length?`<div>
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">REMINDERS</div>
+        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
           ${visibleTasks.map(t=>{
-            const isDue=t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now;
             const isOverdue=t.due&&new Date(t.due)<now;
-            return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:.5px solid rgba(0,0,0,.04)">
-              <div onclick="dTask('${t.id}')" style="width:14px;height:14px;border-radius:4px;border:1.5px solid ${isOverdue?'#E24B4A':isDue?'#EF9F27':'#ccc'};flex-shrink:0;margin-top:1px;cursor:pointer"></div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
-                <div style="font-size:10px;color:${isOverdue?'#E24B4A':isDue?'#EF9F27':'var(--sub)'};font-weight:${isOverdue||isDue?'600':'400'}">${t.due||'No due date'}${t.amt>0?' · '+f$(t.amt):''}</div>
-              </div>
-            </div>`;
+            const isDue=!isOverdue&&t.due&&new Date(t.due)<=soon;
+            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid #F9FAFB">'
+              +'<div onclick="dTask(\''+t.id+'\')" style="width:15px;height:15px;border-radius:4px;border:1.5px solid '+(isOverdue?'#E05C7A':isDue?'#EF9F27':'#D1D5DB')+';flex-shrink:0;cursor:pointer"></div>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.name)+'</div>'
+              +'<div style="font-size:10px;color:'+(isOverdue?'#E05C7A':isDue?'#EF9F27':'#9CA3AF')+';font-weight:'+(isOverdue||isDue?'600':'400')+';">'+(t.due||'No due date')+(t.amt>0?' \u00B7 '+f$(t.amt):'')+'</div>'
+              +'</div></div>';
           }).join('')}
-          ${pendingTasks.length>5?`<div onclick="goTo('tasks')" style="padding:7px 12px;font-size:10px;color:var(--blue2);font-weight:700;cursor:pointer;text-align:center">+${pendingTasks.length-5} more →</div>`:''}
-        </div>`:''}
-        ${pendingXfers.length?`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-          <div style="padding:9px 12px 4px;border-bottom:.5px solid rgba(0,0,0,.05)">
-            <div style="font-size:10px;font-weight:700;color:#5B21B6;display:flex;align-items:center;gap:5px">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg>PENDING TRANSFERS
-            </div>
-          </div>
-          ${pendingXfers.slice(0,5).map(x=>`<div style="padding:7px 12px;border-bottom:.5px solid rgba(0,0,0,.04)">
-            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.title)}</div>
-            <div style="font-size:10px;color:var(--sub);margin-top:1px">${f$(x.amount)} · ${esc(x.from)} → ${esc(x.to)}</div>
-          </div>`).join('')}
-          ${pendingXfers.length>5?`<div onclick="goTo('transfers')" style="padding:7px 12px;font-size:10px;color:#5B21B6;font-weight:700;cursor:pointer;text-align:center">+${pendingXfers.length-5} more →</div>`:''}
-        </div>`:''}
-        ${!pendingTasks.length&&!pendingXfers.length?`<div style="background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-          <div style="font-size:18px;margin-bottom:3px">✓</div>
-          <div style="font-size:11px;font-weight:600;color:#3B6D11">All clear!</div>
-        </div>`:''}
-      </div>
-
+          ${pendingTasks.length>5?'<div onclick="goTo(\'tasks\')" style="padding:8px 12px;font-size:11px;color:#6B7280;font-weight:600;cursor:pointer;text-align:center">+'+(pendingTasks.length-5)+' more \u2192</div>':''}
+        </div>
+      </div>`:''}
+      ${pendingXfers.length?`<div>
+        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">PENDING TRANSFERS</div>
+        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
+          ${pendingXfers.slice(0,5).map(x=>'<div style="padding:9px 12px;border-bottom:.5px solid #F9FAFB"><div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.title)+'</div><div style="font-size:10px;color:#9CA3AF;margin-top:1px">'+f$(x.amount)+' \u00B7 '+esc(x.from)+' \u2192 '+esc(x.to)+'</div></div>').join('')}
+          ${pendingXfers.length>5?'<div onclick="goTo(\'transfers\')" style="padding:8px 12px;font-size:11px;color:#6B7280;font-weight:600;cursor:pointer;text-align:center">+'+(pendingXfers.length-5)+' more \u2192</div>':''}
+        </div>
+      </div>`:''}
     </div>
-
-    <!-- QUICK ACTIONS pinned at bottom -->
-    <div style="border-top:.5px solid rgba(0,0,0,.08);padding-top:12px;display:flex;flex-direction:column;gap:6px">
-      <div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.7px;margin-bottom:2px">QUICK ACTIONS</div>
+    <div style="border-top:.5px solid #EBEBEB;padding-top:12px;flex-shrink:0">
+      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:8px">QUICK ACTIONS</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <button onclick="oM('expense')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:26px;height:26px;border-radius:7px;background:#FCEBEB;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#791F1F" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
-          <span style="font-size:10px;font-weight:600;color:var(--text)">Expense</span>
+        <button onclick="oM('expense')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
+          <div style="width:22px;height:22px;border-radius:6px;background:#FDEAEA;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E05C7A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:#374151">Expense</span>
         </button>
-        <button onclick="oM('income')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:26px;height:26px;border-radius:7px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-          <span style="font-size:10px;font-weight:600;color:var(--text)">Income</span>
+        <button onclick="oM('income')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
+          <div style="width:22px;height:22px;border-radius:6px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4CAF82" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:#374151">Income</span>
         </button>
-        <button onclick="oM('qtransfer')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:26px;height:26px;border-radius:7px;background:#EDE9FE;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
-          <span style="font-size:10px;font-weight:600;color:var(--text)">Transfer</span>
+        <button onclick="oM('qtransfer')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
+          <div style="width:22px;height:22px;border-radius:6px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:#374151">Transfer</span>
         </button>
-        <button onclick="goTo('tasks')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;background:#fff;border:none;border-radius:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative">
-          <div style="width:26px;height:26px;border-radius:7px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;position:relative">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-            ${pendingTasks.filter(t=>t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now).length>0?`<span style="position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:8px;font-weight:700;border-radius:99px;padding:1px 4px">${pendingTasks.filter(t=>t.due&&new Date(t.due)<=soon&&new Date(t.due)>=now).length}</span>`:''}
-          </div>
-          <span style="font-size:10px;font-weight:600;color:var(--text)">Tasks</span>
+        <button onclick="goTo('tasks')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer;position:relative">
+          <div style="width:22px;height:22px;border-radius:6px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+          <span style="font-size:11px;font-weight:600;color:#374151">Tasks</span>
+          ${due>0?'<span style="position:absolute;top:5px;right:5px;background:#E05C7A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">'+due+'</span>':''}
         </button>
       </div>
     </div>`;
 }
+
+
+// Strip _snap fields before persisting — snaps are memory-only
+function dbForStorage(){
+  return JSON.parse(JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val));
+}
+
+function sv(){
+  try{
+    const now=Date.now();
+    localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
+    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
+    localStorage.setItem('ft-updated',now.toString());
+  }catch(e){console.log('localStorage save error:',e);}
+  const ind=document.getElementById('sync-indicator');
+  const lbl=document.getElementById('sync-label');
+  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
+  if(syncTimeout)clearTimeout(syncTimeout);
+  syncTimeout=setTimeout(async()=>{
+    await saveToCloud();
+    const ind2=document.getElementById('sync-indicator');
+    const lbl2=document.getElementById('sync-label');
+    if(ind2){ind2.style.background='#3B6D11';if(lbl2)lbl2.textContent='Synced to cloud';}
+  },1000);
+}
+
+async function saveToCloud(){
+  if(!currentUser)return;
+  try{
+    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
+    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    localStorage.setItem('ft-updated',Date.now().toString());
+  }catch(e){console.log('Cloud save error:',e);}
+}
+
+async function forceSyncToCloud(){
+  const ind=document.getElementById('sync-indicator');
+  const lbl=document.getElementById('sync-label');
+  const btn=document.getElementById('force-sync-btn');
+  if(btn){btn.textContent='Syncing...';btn.disabled=true;}
+  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
+  try{
+    localStorage.setItem('fintrack2',JSON.stringify(DB));
+    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
+    await saveToCloud();
+    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
+    showToast('All data synced to cloud ✓');
+  }catch(e){
+    showToast('Sync failed — check connection');
+  }
+  if(btn){btn.textContent='Force sync to cloud';btn.disabled=false;}
+}
+
+async function loadFromCloud(){
+  if(!currentUser)return;
+  try{
+    const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
+    if(data&&data.data){
+      const parsed=JSON.parse(data.data);
+      const cloudDB=parsed.db||{};
+      const cloudUpdated=data.updated_at?new Date(data.updated_at).getTime():0;
+      // Compare timestamps — newest wins
+      const localRaw=localStorage.getItem('fintrack2');
+      const localDB=localRaw?JSON.parse(localRaw):{};
+      const localUpdated=localStorage.getItem('ft-updated')?parseInt(localStorage.getItem('ft-updated')):0;
+      if(localUpdated>cloudUpdated){
+        // Local is newer — push to cloud
+        DB=localDB;
+        defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
+        migrateDB();
+        await saveToCloud();
+      } else {
+        // Cloud is newer or equal — use cloud, update local
+        DB=cloudDB;
+        defaultFromWalletId=parsed.defaultWallet||null;
+        migrateDB();
+        localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
+        localStorage.setItem('ft-updated',cloudUpdated.toString());
+      }
+    } else {
+      // No cloud data yet — push local up
+      ld();
+      await saveToCloud();
+    }
+  }catch(e){
+    console.log('Cloud load error, using local:',e);
+    ld();
+  }
+}
+
+function ld(){
+  try{
+    const d=localStorage.getItem('fintrack2');
+    if(d)DB=JSON.parse(d);
+    defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
+    if(!d){const old=localStorage.getItem('fintrack');if(old)DB=JSON.parse(old);}
+    migrateDB();
+  }catch(e){}
+}
+
+function migrateDB(){
+  if(!DB.creditCards)DB.creditCards=[];
+  if(!DB.toSpend)DB.toSpend={base:0,label:'Monthly Income'};
+  if(!DB.wallets)DB.wallets=[];
+  if(!DB.transactions)DB.transactions=[];
+  if(!DB.funds)DB.funds=[];
+  if(!DB.tasks)DB.tasks=[];
+  if(!DB.borrowings)DB.borrowings=[];
+  if(!DB.resources)DB.resources=[];
+  if(!DB.bonuses)DB.bonuses=[];
+  if(!DB.transferGroups)DB.transferGroups=[];
+}
+
+
+// Per-transaction undo — snapshot stored ON the transaction itself (memory only, not persisted)
+function addTx(o){
+  // Snapshot current DB state (without any existing snaps to keep it lean)
+  const snap=JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val);
+  const tx={id:uid(),rawDate:new Date().toISOString(),...o,date:td(),_snap:snap};
+  DB.transactions.unshift(tx);
+  // Only keep _snap on the 10 most recent transactions — clear the rest
+  DB.transactions.forEach((t,i)=>{if(i>=10)delete t._snap;});
+  sv();
+}
+
+function undoTx(txId){
+  const tx=DB.transactions.find(x=>x.id===txId);
+  if(!tx||!tx._snap){return showToast('No undo data for this transaction');}
+  if(!confirm('Undo this transaction? All wallet/fund balances will revert to before this action.'))return;
+  DB=JSON.parse(tx._snap);
+  sv();showToast('Transaction undone ↩');render();
+}
+
+function showToast(msg='✓ Done!',emoji=''){
+  const el=document.getElementById('toast');
+  el.textContent=(emoji?emoji+' ':'')+msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+function tasksDueSoon(){
+  const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
+  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future).length;
+}
+
 
 function goTo(s){CS=s;render();}
 function render(){
