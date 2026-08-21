@@ -88,23 +88,24 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 [contenteditable].empty{position:relative}
 /* ── Desktop layout ── */
 @media(min-width:768px){
-  body{background:#F4F6F9;overflow:auto}
-  #app{max-width:100%;flex-direction:row;height:100vh;background:#F4F6F9}
+  body{background:#F0F2F5;overflow:auto}
+  #app{max-width:100%;flex-direction:row;height:100vh;background:#F0F2F5}
   #desktop-sidebar{width:200px;min-width:200px;background:#fff;display:flex;flex-direction:column;padding:20px 0;flex-shrink:0;height:100vh;position:sticky;top:0;border-right:.5px solid #EBEBEB}
-  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F4F6F9}
-  #sh{flex:1;overflow:hidden}
-  #desktop-right{width:260px;min-width:260px;padding:20px 16px 20px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F0F2F5}
+  #sh{flex:1;overflow-y:auto;overflow-x:hidden}
+  #desktop-right{width:300px;min-width:300px;padding:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;flex-shrink:0;border-left:.5px solid #EBEBEB;background:#fff}
   #desktop-right::-webkit-scrollbar{display:none}
+  #sh::-webkit-scrollbar{display:none}
   .bn{display:none!important}
-  .modal{max-width:480px;border-radius:18px}
-  .overlay{align-items:center;background:rgba(0,0,0,.25)}
-  .ct{padding:20px 24px;gap:14px}
+  .modal{max-width:520px;border-radius:18px}
+  .overlay{align-items:center;background:rgba(0,0,0,.3)}
+  .ct{padding:20px 28px;gap:16px}
   .screen{max-width:none}
-  .ab{padding:20px 24px 10px;background:#F4F6F9;border-bottom:none}
-  .abt{font-size:22px;font-weight:600;color:#1A1A2E;letter-spacing:-.5px}
+  .ab{padding:24px 28px 12px;background:#F0F2F5;border-bottom:none}
+  .abt{font-size:26px;font-weight:800;color:#1A1A2E;letter-spacing:-1px;text-transform:uppercase}
   .abi{color:#999}
   .ab>span.abi:first-of-type{display:none}
-  .card{border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:.5px solid #EBEBEB}
+  .card{border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:.5px solid #EBEBEB}
 }
 .ct{scrollbar-width:none;-ms-overflow-style:none}
 .ct::-webkit-scrollbar{display:none}
@@ -520,90 +521,88 @@ const SVGMAP={
 function renderDesktopRight(){
   const panel=document.getElementById('desktop-right');if(!panel)return;
   const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+3);
-  const recentTx=DB.transactions.slice(0,8);
-  const pendingTasks=DB.tasks.filter(t=>!t.done);
-  const visibleTasks=pendingTasks.slice(0,5);
   const due=tasksDueSoon();
+  const pendingTasks=DB.tasks.filter(t=>!t.done);
   const pendingXfers=[];
   DB.transferGroups.forEach(g=>g.transfers.forEach(t=>{
     if(!(t.fundId?t.transferred:t.done)){
       const fw=t.fromWalletId?gW(t.fromWalletId):null;
       const tw=t.toWalletId?gW(t.toWalletId):null;
-      pendingXfers.push({title:t.title||'Transfer',amount:t.amount,from:fw?fw.name:'?',to:tw?tw.name:(t.fundId?'Fund':'?')});
+      pendingXfers.push({title:t.title||'Transfer',amount:t.amount,from:fw?fw.name:'?',to:tw?tw.name:(t.fundId?'Fund':'?'),gid:g.id,tid:t.id,fundId:t.fundId,transferred:t.transferred,done:t.done});
     }
   }));
-  const txColors={Food:'#EAF3DE',Utilities:'#FDEAEA',Transport:'#E6F1FB',Shopping:'#EAF3DE',Bills:'#FDEAEA',Entertainment:'#EDE9FE',Fund:'#FEF3C7',Bonus:'#FEF3C7',Transfer:'#EDE9FE',Other:'#F3F4F6'};
-  const txIcons={Food:'#27500A',Utilities:'#C0192C',Transport:'#0C447C',Shopping:'#27500A',Bills:'#C0192C',Entertainment:'#5B21B6',Fund:'#92400E',Bonus:'#92400E',Transfer:'#5B21B6',Other:'#6B7280'};
 
   panel.innerHTML=`
-    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-bottom:16px;scrollbar-width:none">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">RECENT LOG</div>
-        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
-          ${recentTx.length?recentTx.map(t=>{
-            const bg=txColors[t.cat]||'#F3F4F6';
-            const ic=txIcons[t.cat]||'#6B7280';
-            const isExp=t.type==='expense';
-            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid #F9FAFB">'
-              +'<div style="width:30px;height:30px;border-radius:9px;background:'+bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-              +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="'+ic+'" stroke-width="2.5" stroke-linecap="round"><path d="'+(isExp?'M5 12h14':'M12 5v14M5 12h14')+'"/></svg></div>'
-              +'<div style="flex:1;min-width:0">'
-              +'<div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.name)+'</div>'
-              +'<div style="font-size:10px;color:#9CA3AF;margin-top:1px">'+esc(t.date)+(t.walletName?' \u00B7 '+esc(t.walletName):'')+'</div></div>'
-              +'<div style="flex-shrink:0;text-align:right">'
-              +'<div style="font-size:12px;font-weight:700;color:'+(isExp?'#E05C7A':'#4CAF82')+'">'+(isExp?'\u2212':'+')+f$(t.amount)+'</div>'
-              +(t._snap?'<button onclick="undoTx(\''+t.id+'\')" style="padding:1px 6px;background:#F3F4F6;color:#6B7280;border:none;border-radius:5px;font-size:9px;cursor:pointer;margin-top:2px">\u21A9 undo</button>':'')
-              +'</div></div>';
-          }).join(''):'<div style="padding:16px;font-size:12px;color:#9CA3AF;text-align:center">No transactions yet</div>'}
+    <div style="padding:20px 18px;border-bottom:.5px solid #EBEBEB">
+      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">PENDING TRANSFERS</div>
+      ${pendingXfers.length?pendingXfers.slice(0,6).map(x=>`<div style="padding:8px 10px;background:#F9FAFB;border-radius:10px;margin-bottom:6px;border:.5px solid #EBEBEB">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:600;color:#1A1A2E">${esc(x.title)}</span>
+          <span style="font-size:11px;font-weight:700;color:#4CAF82">${f$(x.amount)}</span>
         </div>
-      </div>
-      ${pendingTasks.length?`<div>
-        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">REMINDERS</div>
-        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
-          ${visibleTasks.map(t=>{
-            const isOverdue=t.due&&new Date(t.due)<now;
-            const isDue=!isOverdue&&t.due&&new Date(t.due)<=soon;
-            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid #F9FAFB">'
-              +'<div onclick="dTask(\''+t.id+'\')" style="width:15px;height:15px;border-radius:4px;border:1.5px solid '+(isOverdue?'#E05C7A':isDue?'#EF9F27':'#D1D5DB')+';flex-shrink:0;cursor:pointer"></div>'
-              +'<div style="flex:1;min-width:0">'
-              +'<div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.name)+'</div>'
-              +'<div style="font-size:10px;color:'+(isOverdue?'#E05C7A':isDue?'#EF9F27':'#9CA3AF')+';font-weight:'+(isOverdue||isDue?'600':'400')+';">'+(t.due||'No due date')+(t.amt>0?' \u00B7 '+f$(t.amt):'')+'</div>'
-              +'</div></div>';
-          }).join('')}
-          ${pendingTasks.length>5?'<div onclick="goTo(\'tasks\')" style="padding:8px 12px;font-size:11px;color:#6B7280;font-weight:600;cursor:pointer;text-align:center">+'+(pendingTasks.length-5)+' more \u2192</div>':''}
+        <div style="font-size:10px;color:#9CA3AF;margin-bottom:5px">${esc(x.from)} \u2192 ${esc(x.to)}</div>
+        <div style="display:flex;gap:5px">
+          ${x.fundId?(!x.transferred?`<button onclick="pendingConfirm={type:'xferItem',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2192 Transferred</button>`:''): (!x.transferred?`<button onclick="pendingConfirm={type:'xferItem',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2192 Transferred</button>`:'')}
+          ${!x.fundId&&x.transferred&&!x.done?`<button onclick="pendingConfirm={type:'xferDone',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#E6F1FB;color:#0C447C;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2713 Done</button>`:''}
         </div>
-      </div>`:''}
-      ${pendingXfers.length?`<div>
-        <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">PENDING TRANSFERS</div>
-        <div style="background:#fff;border-radius:14px;border:.5px solid #EBEBEB;overflow:hidden">
-          ${pendingXfers.slice(0,5).map(x=>'<div style="padding:9px 12px;border-bottom:.5px solid #F9FAFB"><div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.title)+'</div><div style="font-size:10px;color:#9CA3AF;margin-top:1px">'+f$(x.amount)+' \u00B7 '+esc(x.from)+' \u2192 '+esc(x.to)+'</div></div>').join('')}
-          ${pendingXfers.length>5?'<div onclick="goTo(\'transfers\')" style="padding:8px 12px;font-size:11px;color:#6B7280;font-weight:600;cursor:pointer;text-align:center">+'+(pendingXfers.length-5)+' more \u2192</div>':''}
-        </div>
-      </div>`:''}
+      </div>`).join(''):`<div style="font-size:12px;color:#9CA3AF;text-align:center;padding:10px">No pending transfers</div>`}
     </div>
-    <div style="border-top:.5px solid #EBEBEB;padding-top:12px;flex-shrink:0">
-      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:8px">QUICK ACTIONS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <button onclick="oM('expense')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
-          <div style="width:22px;height:22px;border-radius:6px;background:#FDEAEA;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E05C7A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
-          <span style="font-size:11px;font-weight:600;color:#374151">Expense</span>
+
+    <div style="padding:20px 18px;border-bottom:.5px solid #EBEBEB">
+      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">REMINDERS${due>0?` <span style="background:#E05C7A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px;margin-left:4px">${due}</span>`:''}</div>
+      ${pendingTasks.length?pendingTasks.slice(0,6).map(t=>{
+        const isOverdue=t.due&&new Date(t.due)<now;
+        const isDue=!isOverdue&&t.due&&new Date(t.due)<=soon;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #F4F4F4">
+          <div onclick="dTask('${t.id}')" style="width:15px;height:15px;border-radius:4px;border:1.5px solid ${isOverdue?'#E05C7A':isDue?'#EF9F27':'#D1D5DB'};flex-shrink:0;cursor:pointer;background:${isOverdue?'#FFF0F0':'#fff'}"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+            <div style="font-size:10px;color:${isOverdue?'#E05C7A':isDue?'#EF9F27':'#9CA3AF'};font-weight:${isOverdue||isDue?'600':'400'}">${isOverdue?'Past due':t.due||'No due date'}${t.amt>0?' \u00B7 '+f$(t.amt):''}</div>
+          </div>
+        </div>`;
+      }).join(''):`<div style="font-size:12px;color:#9CA3AF;text-align:center;padding:8px">All clear!</div>`}
+    </div>
+
+    <div style="padding:20px 18px;border-bottom:.5px solid #EBEBEB">
+      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:12px">CALCULATOR</div>
+      <div id="calc-display" style="background:#F4F6F9;border-radius:10px;padding:10px 14px;font-size:20px;font-weight:700;color:#1A1A2E;text-align:right;margin-bottom:8px;min-height:44px;letter-spacing:-.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">0</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+        ${[['AC','.','(',')'],[7,8,9,'/'],[4,5,6,'*'],[1,2,3,'-'],[0,'','','+']].map(row=>row.map(k=>{
+          if(k==='')return '<div></div>';
+          const isOp=['/','*','-','+','(',')','.'].includes(k);
+          const isAC=k==='AC';
+          const bg=isAC?'#FCEBEB':isOp?'#EAF3DE':'#fff';
+          const cl=isAC?'#C0192C':isOp?'#27500A':'#1A1A2E';
+          return `<button onclick="calcInput('${k}')" style="padding:11px 6px;background:${bg};color:${cl};border:.5px solid #EBEBEB;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">${k}</button>`;
+        }).join('')).join('')}
+        <button onclick="calcInput('=')" style="grid-column:2/5;padding:11px;background:#1A1A2E;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">=</button>
+      </div>
+    </div>
+
+    <div style="padding:20px 18px">
+      <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:10px">QUICK ACTIONS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onclick="oM('expense')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#FFF0F0;border:none;border-radius:12px;cursor:pointer">
+          <div style="width:32px;height:32px;border-radius:10px;background:#FDEAEA;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E05C7A" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:700;color:#E05C7A">Expense</span>
         </button>
-        <button onclick="oM('income')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
-          <div style="width:22px;height:22px;border-radius:6px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4CAF82" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-          <span style="font-size:11px;font-weight:600;color:#374151">Income</span>
+        <button onclick="oM('income')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F0FAF4;border:none;border-radius:12px;cursor:pointer">
+          <div style="width:32px;height:32px;border-radius:10px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4CAF82" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+          <span style="font-size:11px;font-weight:700;color:#4CAF82">Income</span>
         </button>
-        <button onclick="oM('qtransfer')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer">
-          <div style="width:22px;height:22px;border-radius:6px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
-          <span style="font-size:11px;font-weight:600;color:#374151">Transfer</span>
+        <button onclick="oM('qtransfer')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F3F0FF;border:none;border-radius:12px;cursor:pointer">
+          <div style="width:32px;height:32px;border-radius:10px;background:#EDE9FE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
+          <span style="font-size:11px;font-weight:700;color:#5B21B6">Transfers</span>
         </button>
-        <button onclick="goTo('tasks')" style="display:flex;align-items:center;gap:7px;padding:9px 10px;background:#fff;border:.5px solid #EBEBEB;border-radius:10px;cursor:pointer;position:relative">
-          <div style="width:22px;height:22px;border-radius:6px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <span style="font-size:11px;font-weight:600;color:#374151">Tasks</span>
-          ${due>0?'<span style="position:absolute;top:5px;right:5px;background:#E05C7A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">'+due+'</span>':''}
+        <button onclick="goTo('tasks')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F0F6FF;border:none;border-radius:12px;cursor:pointer;position:relative">
+          <div style="width:32px;height:32px;border-radius:10px;background:#E6F1FB;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+          <span style="font-size:11px;font-weight:700;color:#0C447C">Tasks</span>
+          ${due>0?`<span style="position:absolute;top:8px;right:8px;background:#E05C7A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px">${due}</span>`:''}
         </button>
       </div>
     </div>`;
 }
+
 
 
 // Strip _snap fields before persisting — snaps are memory-only
@@ -967,6 +966,22 @@ function selectAllCharges(ccId){
   unpaid.forEach(ch=>selectedCharges[ccId].add(ch.id));
   render();
 }
+let calcExpr='';
+function calcInput(k){
+  const d=document.getElementById('calc-display');if(!d)return;
+  if(k==='AC'){calcExpr='';d.textContent='0';return;}
+  if(k==='='){
+    try{
+      const result=Function('"use strict";return ('+calcExpr+')')();
+      calcExpr=String(Math.round(result*100)/100);
+      d.textContent=calcExpr;
+    }catch(e){d.textContent='Error';calcExpr='';}
+    return;
+  }
+  calcExpr+=String(k);
+  d.textContent=calcExpr;
+}
+
 function calcToSpend(){
   let ts=DB.toSpend.base;
   DB.transactions.forEach(t=>{
@@ -985,7 +1000,168 @@ function calcToSpend(){
   return ts;
 }
 
+function bHomeDesktop(){
+  const tot=DB.wallets.reduce((s,w)=>s+w.currentBalance,0);
+  const actualTot=DB.wallets.reduce((s,w)=>s+w.actualBalance,0);
+  const toSpendVal=calcToSpend();
+  const ccTotal=DB.creditCards.reduce((s,c)=>s+c.used,0);
+  const txAll=DB.transactions;
+
+  // Wallet rows
+  const walRows=DB.wallets.map(w=>{
+    const cl=BC[w.bank]||BC.Other;
+    const lentOut=DB.borrowings.filter(b=>b.dir==='lent'&&b.walletId===w.id).reduce((s,b)=>s+(b.total-b.paid),0);
+    const initial=w.name.trim()[0]?.toUpperCase()||'W';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid #F5F5F5;cursor:pointer" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
+      <div style="width:36px;height:36px;border-radius:10px;background:${cl[0]};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">${initial}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1A1A2E">${esc(w.name)}</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:1px">${esc(w.type||w.bank)}</div>
+        ${lentOut>0?`<div style="display:inline-block;font-size:9px;background:#FFF3CD;color:#856404;padding:1px 6px;border-radius:99px;margin-top:2px;font-weight:600;border:.5px solid #FFE082">${f$(lentOut)} lent</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:700;color:#1A1A2E">${balHidden?'••••':f$(w.currentBalance)}</div>
+        ${lentOut>0&&!balHidden?`<div style="font-size:10px;color:#9CA3AF">Actual ${f$(w.actualBalance)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // CC section
+  const ccSection=DB.creditCards.map(cc=>{
+    const avail=cc.limit-cc.used;
+    const usedPct=cc.limit>0?Math.min(100,Math.round(cc.used/cc.limit*100)):0;
+    const barC=usedPct>80?'#E05C7A':usedPct>50?'#EF9F27':'#4CAF82';
+    const charges=cc.charges||[];
+    const now7=new Date();now7.setDate(now7.getDate()-7);
+    charges.forEach(ch=>{const isPaid=(ch.remaining??ch.amt)<=0;if(isPaid&&!ch._archived&&ch.rawDate&&new Date(ch.rawDate)<now7)ch._archived=true;});
+    const unpaid=charges.filter(ch=>(ch.remaining??ch.amt)>0);
+    const recentPaid=charges.filter(ch=>(ch.remaining??ch.amt)<=0&&!ch._archived);
+    const archived=charges.filter(ch=>ch._archived);
+    const ccExpanded=cc._expanded===true;
+    const cl=BC[cc.bank]||BC.Other;
+    return `<div style="border:.5px solid #EBEBEB;border-radius:14px;overflow:hidden;margin-bottom:10px;background:#fff">
+      <div style="padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <div style="width:9px;height:9px;border-radius:50%;background:${cl[0]};flex-shrink:0"></div>
+          <span style="font-size:13px;font-weight:700;color:#1A1A2E">${esc(cc.name)}</span>
+          ${cc.acct?`<span style="font-size:11px;color:#9CA3AF">${esc(cc.acct)}</span>`:''}
+        </div>
+        <div style="background:#f0f0f0;border-radius:99px;height:7px;overflow:hidden;margin-bottom:8px">
+          <div style="width:${usedPct}%;height:7px;border-radius:99px;background:${barC};transition:width .3s"></div>
+        </div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:11px;color:#9CA3AF">Used: </span><span style="font-size:12px;font-weight:700;color:#E05C7A">${balHidden?'••••':f$(cc.used)}</span>
+          <span style="font-size:11px;color:#9CA3AF;margin-left:8px">Avail: </span><span style="font-size:12px;font-weight:700;color:#4CAF82">${balHidden?'••••':f$(Math.max(0,avail))}</span>
+          <span style="font-size:11px;color:#9CA3AF;margin-left:8px">Limit: </span><span style="font-size:12px;font-weight:700;color:#555">${f$(cc.limit)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;gap:6px">
+            <button onclick="aCreditCard='${cc.id}';oM('ccCharge')" style="padding:5px 12px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Charge</button>
+            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;if(cnt>0)return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay selected</button>`;return `<button onclick="aCreditCard='${cc.id}';oM('ccPay')" style="padding:5px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Pay all</button>`;})()} 
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            ${(function(){const sel=selectedCharges[cc.id];const cnt=sel?sel.size:0;const tot=cnt>0?getSelectedTotal(cc.id,unpaid):0;return cnt>0?`<span style="font-size:14px;font-weight:800;color:#E05C7A">${f$(tot)}</span><button onclick="selectedCharges['${cc.id}']=new Set();render()" style="padding:2px 7px;background:#f0f0f0;color:#999;border:none;border-radius:99px;font-size:10px;cursor:pointer">\u2715</button>`:`<button onclick="selectAllCharges('${cc.id}')" style="padding:3px 10px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Select all</button>`;})()} 
+          </div>
+        </div>
+      </div>
+      ${charges.length?`<div style="border-top:.5px solid #f0f0f0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;cursor:pointer" onclick="(function(){const c=DB.creditCards.find(x=>x.id==='${cc.id}');if(c){c._expanded=!c._expanded;render();}})()">
+          <span style="font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:.5px">CHARGES (${unpaid.length} unpaid${archived.length>0?' · '+archived.length+' archived':''})</span>
+          <span style="color:#ccc;font-size:12px">${ccExpanded?'▲':'▼'}</span>
+        </div>
+        ${ccExpanded?`<div style="padding:0 14px 10px">
+          ${unpaid.map(ch=>{const rem=ch.remaining??ch.amt;const isSel=!!(selectedCharges[cc.id]&&selectedCharges[cc.id].has(ch.id));return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f5f5f5;background:${isSel?'#F0FAF4':'transparent'};cursor:pointer" onclick="toggleChargeSelect('${cc.id}','${ch.id}')">
+            <div style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${isSel?'#4CAF82':'#ddd'};background:${isSel?'#4CAF82':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?'<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:#1A1A2E">${esc(ch.desc)}</div><div style="font-size:10px;color:#9CA3AF">${esc(ch.date)} · ${esc(ch.cat)}</div></div>
+            <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+              <span style="font-size:12px;font-weight:700;color:${isSel?'#27500A':'#E05C7A'}">${f$(rem)}</span>
+              <button onclick="event.stopPropagation();aCreditCard='${cc.id}';aChargeId='${ch.id}';oM('ccPayCharge')" style="padding:2px 7px;background:#EAF3DE;color:#27500A;border:none;border-radius:5px;font-size:10px;cursor:pointer">Pay</button>
+              <button onclick="event.stopPropagation();deleteCCCharge('${cc.id}','${ch.id}')" style="padding:2px 6px;background:#FCEBEB;color:#C0192C;border:none;border-radius:5px;font-size:10px;cursor:pointer">\u00D7</button>
+            </div>
+          </div>`}).join('')}
+          ${recentPaid.length?`<div style="margin-top:6px"><div style="font-size:10px;color:#9CA3AF;margin-bottom:4px">Paid (last 7 days)</div>${recentPaid.map(ch=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:.5px solid #f5f5f5"><span style="font-size:11px;color:#aaa;text-decoration:line-through">${esc(ch.desc)}</span><span style="font-size:11px;color:#aaa">${f$(ch.amt)}</span></div>`).join('')}</div>`:''}
+          ${archived.length?`<div style="margin-top:6px;background:#f8f8f8;border-radius:8px;padding:6px 10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:10px;color:#bbb;font-weight:700">ARCHIVED (${archived.length})</span><button onclick="clearArchivedCharges('${cc.id}')" style="padding:2px 7px;background:#FCEBEB;color:#C0192C;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer">Clear</button></div>${archived.map(ch=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="font-size:10px;color:#ccc;text-decoration:line-through">${esc(ch.desc)}</span><span style="font-size:10px;color:#ccc">${f$(ch.amt)}</span></div>`).join('')}</div>`:''}
+        </div>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+
+  return `<div class="screen">
+    <div class="ab">
+      <span class="abt">Dashboard</span>
+      <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
+    </div>
+    <div style="padding:0 28px 28px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- DASHBOARD CARD -->
+      <div class="card" style="padding:20px 24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:4px">TOTAL BALANCE</div>
+            <div style="font-size:36px;font-weight:800;color:#1A1A2E;letter-spacing:-1.5px;line-height:1">${balHidden?'₱ ••••••':f$(tot)}</div>
+            ${!balHidden&&actualTot!==tot?`<div style="font-size:12px;color:#9CA3AF;margin-top:4px">Actual: ${f$(actualTot)}</div>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px;margin-bottom:4px">TO SPEND</div>
+            <div style="font-size:28px;font-weight:800;color:${toSpendVal>=0?'#4CAF82':'#E05C7A'};letter-spacing:-.5px;line-height:1">${balHidden?'₱ ••••':toSpendVal<0?'−'+f$(Math.abs(toSpendVal)):f$(toSpendVal)}</div>
+            <button onclick="oM('toSpendSettings')" style="margin-top:6px;padding:4px 12px;background:#f0f0f0;color:#6B7280;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">Set Budget</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1;border:.5px solid #EBEBEB;border-radius:12px;padding:12px 14px">
+            <div style="font-size:9px;color:#9CA3AF;font-weight:700;letter-spacing:.8px;margin-bottom:4px">${DB.wallets.length} WALLETS</div>
+            <div style="font-size:16px;font-weight:800;color:#1A1A2E">${balHidden?'••••':f$(tot)}</div>
+          </div>
+          ${ccTotal>0?`<div style="flex:1;border:.5px solid #ffcccc;border-radius:12px;padding:12px 14px">
+            <div style="font-size:9px;color:#E05C7A;font-weight:700;letter-spacing:.8px;margin-bottom:4px">CC OWED</div>
+            <div style="font-size:16px;font-weight:800;color:#E05C7A">${balHidden?'••••':f$(ccTotal)}</div>
+          </div>`:''}
+          <div style="flex:1;border:.5px solid #c8e6c9;border-radius:12px;padding:12px 14px">
+            <div style="font-size:9px;color:#4CAF82;font-weight:700;letter-spacing:.8px;margin-bottom:4px">NET WORTH</div>
+            <div style="font-size:16px;font-weight:800;color:#1A1A2E">${balHidden?'••••':f$(tot-ccTotal)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2-COLUMN: TRANSACTIONS + WALLETS/CC -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+        <!-- RECENT TRANSACTIONS -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:14px 16px;border-bottom:.5px solid #f5f5f5">
+            <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px">RECENT TRANSACTIONS</div>
+          </div>
+          <div style="max-height:600px;overflow-y:auto;scrollbar-width:none">
+            ${txAll.length?txAll.slice(0,homeTxLimit).map((t,i)=>txR(t,i<10)).join(''):'<div style="padding:20px;text-align:center;font-size:12px;color:#9CA3AF">No transactions yet</div>'}
+          </div>
+          ${txAll.length>homeTxLimit?`<div style="padding:10px;text-align:center;border-top:.5px solid #f5f5f5"><button onclick="homeTxLimit+=20;render()" style="padding:7px 16px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Show more</button></div>`:''}
+        </div>
+
+        <!-- RIGHT COLUMN: CC + WALLETS -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          ${DB.creditCards.length?`<div class="card" style="padding:14px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px">CREDIT CARDS</div>
+              <button onclick="oM('creditCard')" style="padding:4px 10px;background:#f0f0f0;color:#6B7280;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">+ Add card</button>
+            </div>
+            ${ccSection}
+          </div>`:''}
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:14px 16px;border-bottom:.5px solid #f5f5f5;display:flex;justify-content:space-between;align-items:center">
+              <div style="font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:.8px">MY WALLETS</div>
+              <button onclick="oM('wallet')" style="padding:4px 10px;background:#f0f0f0;color:#6B7280;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">+ Add</button>
+            </div>
+            ${DB.wallets.length?walRows:'<div style="padding:20px;text-align:center;font-size:12px;color:#9CA3AF">No wallets yet</div>'}
+          </div>
+        </div>
+      </div>
+    </div>
+    ${nav()}
+  </div>`;
+}
+
 function bHome(){
+  if(isDesktop())return bHomeDesktop();
   const tot=DB.wallets.reduce((s,w)=>s+w.currentBalance,0);
   const actualTot=DB.wallets.reduce((s,w)=>s+w.actualBalance,0);
   const txAll=DB.transactions;
