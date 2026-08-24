@@ -99,9 +99,9 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   .bn{display:none!important}
   .modal{max-width:520px;border-radius:20px}
   .overlay{align-items:center;background:rgba(0,0,0,.45)}
-  .ct{padding:20px 24px;gap:14px}
+  .ct{padding:4px 32px 28px;gap:14px}
   .screen{max-width:none}
-  .ab{padding:20px 24px 6px;background:#F5F5F7;border-bottom:none}
+  .ab{padding:20px 32px 6px;background:#F5F5F7;border-bottom:none}
   .abt{font-size:20px;font-weight:600;color:#1A1A2E;letter-spacing:-.3px;text-transform:none}
   .abi{color:#8E8E93}
   .ab>span.abi:first-of-type{display:none}
@@ -566,7 +566,10 @@ function renderDesktopRight(){
 
     <div style="padding:20px 18px;border-bottom:.5px solid rgba(0,0,0,.06)" onclick="focusCalc()">
       <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.8px;margin-bottom:10px">CALCULATOR</div>
-      <div id="calc-display" onclick="focusCalc()" style="background:#F5F5F7;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;min-height:48px;letter-spacing:-.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;font-family:-apple-system,sans-serif">0</div>
+      <div style="position:relative">
+      <div id="calc-display" onclick="focusCalc();showCalcCopy()" style="background:#F5F5F7;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;min-height:48px;letter-spacing:-.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;font-family:-apple-system,sans-serif">0</div>
+      <div id="calc-copy-btn" onclick="copyCalcValue()" style="display:none;position:absolute;top:-30px;right:0;background:#1A1A2E;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;cursor:pointer;z-index:10">Copy</div>
+    </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
         <button onclick="calcInput('AC')" style="padding:10px 4px;background:#FFE5E5;color:#C0192C;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">AC</button>
         <button onclick="calcInput('⌫')" style="padding:10px 4px;background:#F5F5F7;color:#8E8E93;border:none;border-radius:8px;font-size:16px;font-weight:400;cursor:pointer">⌫</button>
@@ -993,6 +996,21 @@ function calcKeyHandler(e){
   else if(e.key==='Backspace'){e.preventDefault();calcInput('⌫');}
   else if(e.key==='Escape'){e.preventDefault();calcInput('AC');}
 }
+function showCalcCopy(){
+  const btn=document.getElementById('calc-copy-btn');
+  if(!btn)return;
+  btn.style.display='block';
+  clearTimeout(window.calcCopyTimer);
+  window.calcCopyTimer=setTimeout(()=>{btn.style.display='none';},2000);
+}
+function copyCalcValue(){
+  const d=document.getElementById('calc-display');
+  if(!d)return;
+  navigator.clipboard.writeText(d.textContent).then(()=>{
+    const btn=document.getElementById('calc-copy-btn');
+    if(btn){btn.textContent='Copied!';setTimeout(()=>{btn.style.display='none';btn.textContent='Copy';},1000);}
+  });
+}
 function focusCalc(){document.addEventListener('keydown',calcKeyHandler);}
 function blurCalc(){document.removeEventListener('keydown',calcKeyHandler);}
 
@@ -1105,7 +1123,7 @@ function bHomeDesktop(){
       <span class="abt">Dashboard</span>
       <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
     </div>
-    <div style="padding:0 28px 28px;display:flex;flex-direction:column;gap:16px">
+    <div style="padding:0 32px 32px;display:flex;flex-direction:column;gap:16px">
 
       <!-- DASHBOARD CARD -->
       <div class="card" style="padding:22px 24px;background:#fff">
@@ -1141,11 +1159,11 @@ function bHomeDesktop(){
       <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
 
         <!-- RECENT TRANSACTIONS -->
-        <div class="card" style="padding:0;overflow:hidden;min-width:0">
+        <div class="card" style="padding:0;min-width:0;">
           <div style="padding:14px 16px;border-bottom:.5px solid rgba(0,0,0,.06)">
             <div style="font-size:12px;font-weight:600;color:#1A1A2E;letter-spacing:-.2px">Recent Transactions</div>
           </div>
-          <div style="overflow-y:auto;max-height:70vh;scrollbar-width:none">
+          <div style="scrollbar-width:none">
             ${txAll.length?txAll.slice(0,homeTxLimit).map((t,i)=>txR(t,i<10)).join(''):'<div style="padding:20px;text-align:center;font-size:12px;color:#8E8E93">No transactions yet</div>'}
           </div>
           ${txAll.length>homeTxLimit?`<div style="padding:10px;text-align:center;border-top:.5px solid rgba(0,0,0,.06)"><button onclick="homeTxLimit+=20;render()" style="padding:6px 16px;background:#F5F5F7;color:#8E8E93;border:none;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer">Show more</button></div>`:''}
