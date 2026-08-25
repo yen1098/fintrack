@@ -567,7 +567,7 @@ function renderDesktopRight(){
     <div style="padding:20px 18px;border-bottom:.5px solid rgba(0,0,0,.06)" onclick="focusCalc()">
       <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.8px;margin-bottom:10px">CALCULATOR</div>
       <div style="position:relative">
-      <div id="calc-display" onclick="focusCalc();showCalcCopy()" style="background:#F5F5F7;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;min-height:48px;letter-spacing:-.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;font-family:-apple-system,sans-serif">0</div>
+      <input id="calc-display" type="text" value="0" oninput="calcExpr=this.value;if(!this.value)this.value='0'" onfocus="focusCalc();showCalcCopy()" onpaste="setTimeout(()=>{calcExpr=document.getElementById('calc-display').value;},10)" style="background:#F5F5F7;border:none;outline:none;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;height:48px;width:100%;letter-spacing:-.5px;cursor:text;font-family:-apple-system,sans-serif">
       <div id="calc-copy-btn" onclick="copyCalcValue()" style="display:none;position:absolute;top:-30px;right:0;background:#1A1A2E;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;cursor:pointer;z-index:10">Copy</div>
     </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
@@ -976,18 +976,19 @@ function selectAllCharges(ccId){
 let calcExpr='';
 function calcInput(k){
   const d=document.getElementById('calc-display');if(!d)return;
-  if(k==='AC'){calcExpr='';d.textContent='0';return;}
-  if(k==='⌫'){calcExpr=calcExpr.slice(0,-1)||'';d.textContent=calcExpr||'0';return;}
+  const setVal=(v)=>{if(d.tagName==='INPUT')d.value=v;else d.textContent=v;};
+  if(k==='AC'){calcExpr='';setVal('0');return;}
+  if(k==='⌫'){calcExpr=calcExpr.slice(0,-1)||'';setVal(calcExpr||'0');return;}
   if(k==='='){
     try{
       const result=Function('"use strict";return ('+calcExpr+')')();
       calcExpr=String(Math.round(result*100)/100);
-      d.textContent=isNaN(result)?'Error':calcExpr;
-    }catch(e){d.textContent='Error';calcExpr='';}
+      setVal(isNaN(result)?'Error':calcExpr);
+    }catch(e){setVal('Error');calcExpr='';}
     return;
   }
   calcExpr+=String(k);
-  d.textContent=calcExpr;
+  setVal(calcExpr);
 }
 function calcKeyHandler(e){
   const d=document.getElementById('calc-display');if(!d)return;
@@ -1006,7 +1007,8 @@ function showCalcCopy(){
 function copyCalcValue(){
   const d=document.getElementById('calc-display');
   if(!d)return;
-  navigator.clipboard.writeText(d.textContent).then(()=>{
+  const val=d.tagName==='INPUT'?d.value:d.textContent;
+  navigator.clipboard.writeText(val).then(()=>{
     const btn=document.getElementById('calc-copy-btn');
     if(btn){btn.textContent='Copied!';setTimeout(()=>{btn.style.display='none';btn.textContent='Copy';},1000);}
   });
@@ -1118,7 +1120,7 @@ function bHomeDesktop(){
     </div>`;
   }).join('');
 
-  return `<div class="screen">
+  return `<div style="min-height:100%;background:#F5F5F7">
     <div class="ab">
       <span class="abt">Dashboard</span>
       <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
@@ -1156,14 +1158,14 @@ function bHomeDesktop(){
       </div>
 
       <!-- 2-COLUMN: TRANSACTIONS + WALLETS/CC -->
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
 
         <!-- RECENT TRANSACTIONS -->
         <div class="card" style="padding:0;min-width:0;">
           <div style="padding:14px 16px;border-bottom:.5px solid rgba(0,0,0,.06)">
             <div style="font-size:12px;font-weight:600;color:#1A1A2E;letter-spacing:-.2px">Recent Transactions</div>
           </div>
-          <div style="scrollbar-width:none">
+          <div style="scrollbar-width:none;padding:0 12px">
             ${txAll.length?txAll.slice(0,homeTxLimit).map((t,i)=>txR(t,i<10)).join(''):'<div style="padding:20px;text-align:center;font-size:12px;color:#8E8E93">No transactions yet</div>'}
           </div>
           ${txAll.length>homeTxLimit?`<div style="padding:10px;text-align:center;border-top:.5px solid rgba(0,0,0,.06)"><button onclick="homeTxLimit+=20;render()" style="padding:6px 16px;background:#F5F5F7;color:#8E8E93;border:none;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer">Show more</button></div>`:''}
@@ -1188,7 +1190,6 @@ function bHomeDesktop(){
         </div>
       </div>
     </div>
-    ${nav()}
   </div>`;
 }
 
