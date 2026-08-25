@@ -91,8 +91,8 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   body{background:#F5F5F7;overflow:auto}
   #app{max-width:100%;flex-direction:row;height:100vh;background:#F5F5F7}
   #desktop-sidebar{width:200px;min-width:200px;background:#fff;display:flex;flex-direction:column;padding:20px 0;flex-shrink:0;height:100vh;position:sticky;top:0;border-right:.5px solid rgba(0,0,0,.06)}
-  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F5F5F7}
-  #sh{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+  #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F5F5F7;min-height:0}
+  #sh{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;min-height:0;height:100%}
   #sh::-webkit-scrollbar{display:none}
   #desktop-right{width:300px;min-width:300px;padding:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;flex-shrink:0;border-left:.5px solid rgba(0,0,0,.06);background:#fff;scrollbar-width:none}
   #desktop-right::-webkit-scrollbar{display:none}
@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <div id="app" style="display:none">
-  <div id="sh" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+  <div id="sh" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden"></div>
   <div id="mh"></div>
 </div>
 <div id="toast">✓ Done!</div>
@@ -283,8 +283,8 @@ function showApp(){
   if(isDesktop()&&!document.getElementById('desktop-sidebar')){
     app.innerHTML=`
       <div id="desktop-sidebar"></div>
-      <div id="desktop-main" style="flex:1;display:flex;flex-direction:row;overflow:hidden">
-        <div id="sh" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+      <div id="desktop-main" style="flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0">
+        <div id="sh" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden"></div>
         <div id="desktop-right"></div>
         <div id="mh"></div>
       </div>`;
@@ -759,11 +759,14 @@ function tasksDueSoon(){
 function goTo(s){CS=s;render();}
 function render(){
   const screens={home:bHome,wallets:bWallets,funds:bFunds,transfers:bTransfers,more:bMore,tasks:bTasks,borrowing:bBorrow,resources:bRes,bonuses:bBonus,ledger:bLedger,notes:bNotes};
+  const shEl=document.getElementById('sh');
   const ct=document.querySelector('.ct');
   const scrollY=ct?ct.scrollTop:0;
-  document.getElementById('sh').innerHTML=(screens[CS]||bHome)();
+  const shScrollY=shEl?shEl.scrollTop:0;
+  shEl.innerHTML=(screens[CS]||bHome)();
   const ctNew=document.querySelector('.ct');
   if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
+  if(shEl&&shScrollY&&isDesktop())shEl.scrollTop=shScrollY;
   if(isDesktop())renderDesktopSidebar();
   if(isDesktop())renderDesktopRight();
   const mhEl=document.getElementById('mh');
