@@ -564,10 +564,10 @@ function renderDesktopRight(){
       }).join(''):`<div style="font-size:12px;color:#9CA3AF;text-align:center;padding:8px">All clear!</div>`}
     </div>
 
-    <div style="padding:20px 18px;border-bottom:.5px solid rgba(0,0,0,.06)" onclick="focusCalc()">
+    <div style="padding:20px 18px;border-bottom:.5px solid rgba(0,0,0,.06)">
       <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.8px;margin-bottom:10px">CALCULATOR</div>
       <div style="position:relative">
-      <input id="calc-display" type="text" value="0" oninput="calcExpr=this.value;if(!this.value)this.value='0'" onfocus="focusCalc();showCalcCopy()" onpaste="setTimeout(()=>{calcExpr=document.getElementById('calc-display').value;},10)" style="background:#F5F5F7;border:none;outline:none;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;height:48px;width:100%;letter-spacing:-.5px;cursor:text;font-family:-apple-system,sans-serif">
+      <input id="calc-display" type="text" value="0" oninput="calcExpr=this.value" onfocus="showCalcCopy()" onpaste="setTimeout(()=>{calcExpr=document.getElementById('calc-display').value;},10)" style="background:#F5F5F7;border:none;outline:none;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;height:48px;width:100%;letter-spacing:-.5px;cursor:text;font-family:-apple-system,sans-serif">
       <div id="calc-copy-btn" onclick="copyCalcValue()" style="display:none;position:absolute;top:-30px;right:0;background:#1A1A2E;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;cursor:pointer;z-index:10">Copy</div>
     </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
@@ -994,11 +994,12 @@ function calcInput(k){
   setVal(calcExpr);
 }
 function calcKeyHandler(e){
-  const d=document.getElementById('calc-display');if(!d)return;
-  if('0123456789.+-*/()'.includes(e.key)){e.preventDefault();calcInput(e.key);}
-  else if(e.key==='Enter'||e.key==='='){e.preventDefault();calcInput('=');}
-  else if(e.key==='Backspace'){e.preventDefault();calcInput('⌫');}
+  // Only intercept if calc input is actually focused
+  const d=document.getElementById('calc-display');
+  if(!d||document.activeElement!==d)return;
+  if(e.key==='Enter'||e.key==='='){e.preventDefault();calcInput('=');}
   else if(e.key==='Escape'){e.preventDefault();calcInput('AC');}
+  // All other keys (digits, operators, backspace) handled natively by the input
 }
 function showCalcCopy(){
   const btn=document.getElementById('calc-copy-btn');
@@ -1016,8 +1017,9 @@ function copyCalcValue(){
     if(btn){btn.textContent='Copied!';setTimeout(()=>{btn.style.display='none';btn.textContent='Copy';},1000);}
   });
 }
-function focusCalc(){document.addEventListener('keydown',calcKeyHandler);}
-function blurCalc(){document.removeEventListener('keydown',calcKeyHandler);}
+// Single global listener that only fires when calc is focused
+document.removeEventListener('keydown',calcKeyHandler);
+document.addEventListener('keydown',calcKeyHandler);
 
 function calcToSpend(){
   let ts=DB.toSpend.base;
