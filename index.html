@@ -21,7 +21,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .abi{font-size:22px;color:#8E8E93;cursor:pointer;padding:2px 4px;position:relative}
 .ct{flex:1;padding:8px 12px 12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:120px}
 .badge-red{position:absolute;top:-4px;right:-4px;background:#E84393;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center}
-.screen{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .ct{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:120px}
 .card{background:var(--white);border-radius:18px;border:.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .slbl{font-size:10px;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
@@ -92,7 +92,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   #app{max-width:100%;flex-direction:row;height:100vh;background:#F5F5F7}
   #desktop-sidebar{width:200px;min-width:200px;background:#fff;display:flex;flex-direction:column;padding:20px 0;flex-shrink:0;height:100vh;position:sticky;top:0;border-right:.5px solid rgba(0,0,0,.06)}
   #desktop-main{flex:1;display:flex;flex-direction:row;overflow:hidden;background:#F5F5F7;min-height:0}
-  #sh{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;min-height:0;height:100%}
+  #sh{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;min-height:0}
   #sh::-webkit-scrollbar{display:none}
   #desktop-right{width:300px;min-width:300px;padding:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;flex-shrink:0;border-left:.5px solid rgba(0,0,0,.06);background:#fff;scrollbar-width:none}
   #desktop-right::-webkit-scrollbar{display:none}
@@ -284,7 +284,7 @@ function showApp(){
     app.innerHTML=`
       <div id="desktop-sidebar"></div>
       <div id="desktop-main" style="flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0">
-        <div id="sh" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden"></div>
+        <div id="sh" style="flex:1;min-height:0;overflow:hidden"></div>
         <div id="desktop-right"></div>
         <div id="mh"></div>
       </div>`;
@@ -748,11 +748,6 @@ function showToast(msg='✓ Done!',emoji=''){
   el.textContent=(emoji?emoji+' ':'')+msg;
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),1800);
-}
-
-function tasksDueSoon(){
-  const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
-  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future).length;
 }
 
 
@@ -1866,12 +1861,29 @@ function bTasks(){
   </div>`;
 }
 
+function calcNextDue(currentDue, freq){
+  // freq format: "every N unit(s)" e.g. "every 1 month", "every 2 weeks"
+  if(!freq||!currentDue)return null;
+  const match=freq.match(/every\s+(\d+)\s+(\w+)/i);
+  if(!match)return null;
+  const n=parseInt(match[1]);
+  const unit=match[2].toLowerCase().replace(/s$/,''); // strip trailing s
+  const base=new Date(currentDue);
+  if(isNaN(base))return null;
+  if(unit==='day')base.setDate(base.getDate()+n);
+  else if(unit==='week')base.setDate(base.getDate()+(n*7));
+  else if(unit==='month')base.setMonth(base.getMonth()+n);
+  else if(unit==='year')base.setFullYear(base.getFullYear()+n);
+  else return null;
+  return base.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
 function dTask(id){
   const t=DB.tasks.find(x=>x.id===id);if(!t)return;
   const row=document.getElementById('task-row-'+id);
   if(row){row.style.transition='all .3s';row.style.opacity='0';row.style.transform='translateX(40px)';}
   setTimeout(()=>{
-    t.done=true;t.completedTxId=null;
+    // Handle payment first
     if(t.walletId&&t.amt>0){
       const w=gW(t.walletId);
       if(w){w.currentBalance-=t.amt;w.actualBalance-=t.amt;}
@@ -1890,6 +1902,19 @@ function dTask(id){
         DB.transactions.unshift({id:txId,rawDate:new Date().toISOString(),date:td(),type:'expense',name:'Task: '+t.name,amount:t.amt,cat:'Fund',walletId:fd.linkedWalletId||'',walletName:wd?wd.name:fd.name,note:(t.note||'')+' · via fund: '+fd.name});
       }
     }
+    // If recurring, reset with next due date instead of marking done
+    if(t.freq&&t.due){
+      const nextDue=calcNextDue(t.due,t.freq);
+      if(nextDue){
+        t.due=nextDue;
+        t.done=false;
+        t.completedTxId=null;
+        sv();showToast('Task done ✓ Next due: '+nextDue);render();
+        return;
+      }
+    }
+    // Non-recurring: mark done
+    t.done=true;
     sv();showToast('Task done');render();
   },300);
 }
