@@ -20,8 +20,8 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .abt{font-size:18px;font-weight:500;flex:1;color:#1C1C1E;letter-spacing:-.4px;font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif}
 .abi{font-size:22px;color:#8E8E93;cursor:pointer;padding:2px 4px;position:relative}
 .badge-red{position:absolute;top:-4px;right:-4px;background:#E84393;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center}
-.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.ct{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:160px}
+.screen{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+.ct{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:160px;min-height:0}
 .card{background:var(--white);border-radius:18px;border:.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .slbl{font-size:10px;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
 .bn{background:#fff;border-top:.5px solid #f0f0f0;display:flex;padding:10px 0 calc(env(safe-area-inset-bottom,0px) + 24px);flex-shrink:0;position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
