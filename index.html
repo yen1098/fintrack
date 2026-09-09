@@ -353,34 +353,6 @@ function dbForStorage(){
   return JSON.parse(JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val));
 }
 
-function sv(){
-  try{
-    const now=Date.now();
-    localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
-    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
-    localStorage.setItem('ft-updated',now.toString());
-  }catch(e){console.log('localStorage save error:',e);}
-  const ind=document.getElementById('sync-indicator');
-  const lbl=document.getElementById('sync-label');
-  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
-  if(syncTimeout)clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{
-    await saveToCloud();
-    const ind2=document.getElementById('sync-indicator');
-    const lbl2=document.getElementById('sync-label');
-    if(ind2){ind2.style.background='#3B6D11';if(lbl2)lbl2.textContent='Synced to cloud';}
-  },1000);
-}
-
-async function saveToCloud(){
-  if(!currentUser)return;
-  try{
-    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
-    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
-    localStorage.setItem('ft-updated',Date.now().toString());
-  }catch(e){console.log('Cloud save error:',e);}
-}
-
 async function forceSyncToCloud(){
   const ind=document.getElementById('sync-indicator');
   const lbl=document.getElementById('sync-label');
@@ -404,35 +376,34 @@ async function loadFromCloud(){
   try{
     const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
     if(data&&data.data){
+      // Cloud exists — always use it. Never let local override cloud.
       const parsed=JSON.parse(data.data);
-      const cloudDB=parsed.db||{};
-      const cloudUpdated=data.updated_at?new Date(data.updated_at).getTime():0;
-      // Compare timestamps — newest wins
-      const localRaw=localStorage.getItem('fintrack2');
-      const localDB=localRaw?JSON.parse(localRaw):{};
-      const localUpdated=localStorage.getItem('ft-updated')?parseInt(localStorage.getItem('ft-updated')):0;
-      if(localUpdated>cloudUpdated){
-        // Local is newer — push to cloud
-        DB=localDB;
-        defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
-        migrateDB();
-        await saveToCloud();
-      } else {
-        // Cloud is newer or equal — use cloud, update local
-        DB=cloudDB;
-        defaultFromWalletId=parsed.defaultWallet||null;
-        migrateDB();
-        localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
-        localStorage.setItem('ft-updated',cloudUpdated.toString());
-      }
+      DB=parsed.db||{};
+      defaultFromWalletId=parsed.defaultWallet||null;
+      migrateDB();
+      // Update local as a cache only (never used as source of truth)
+      try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
+      console.log('Loaded from cloud ✓');
     } else {
-      // No cloud data yet — push local up
-      ld();
-      await saveToCloud();
+      // No cloud data at all — only then use local as seed
+      const localRaw=localStorage.getItem('fintrack2');
+      if(localRaw){
+        try{DB=JSON.parse(localRaw);}catch(e){DB={};}
+        migrateDB();
+        // Immediately push local seed to cloud
+        await saveToCloud();
+        console.log('No cloud data found — seeded from local and saved to cloud');
+      } else {
+        // Completely fresh — start empty
+        DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:''},notes:[]};
+        console.log('Fresh start');
+      }
     }
   }catch(e){
-    console.log('Cloud load error, using local:',e);
-    ld();
+    console.log('Cloud load error:',e);
+    // On error, try local as fallback — but do NOT push to cloud
+    try{const r=localStorage.getItem('fintrack2');if(r)DB=JSON.parse(r);}catch(e2){}
+    migrateDB();
   }
 }
 
@@ -617,31 +588,48 @@ function dbForStorage(){
 }
 
 function sv(){
-  try{
-    const now=Date.now();
-    localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
-    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
-    localStorage.setItem('ft-updated',now.toString());
-  }catch(e){console.log('localStorage save error:',e);}
-  const ind=document.getElementById('sync-indicator');
-  const lbl=document.getElementById('sync-label');
-  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
-  if(syncTimeout)clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{
-    await saveToCloud();
-    const ind2=document.getElementById('sync-indicator');
-    const lbl2=document.getElementById('sync-label');
-    if(ind2){ind2.style.background='#3B6D11';if(lbl2)lbl2.textContent='Synced to cloud';}
-  },1000);
+  try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
+  saveToCloud();
 }
 
 async function saveToCloud(){
   if(!currentUser)return;
+  const si=document.getElementById('sync-indicator');
+  const sl=document.getElementById('sync-label');
   try{
+    if(si)si.style.background='#EF9F27';
+    if(sl)sl.textContent='Saving...';
     const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
-    await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
-    localStorage.setItem('ft-updated',Date.now().toString());
-  }catch(e){console.log('Cloud save error:',e);}
+    const {error}=await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    if(error)throw error;
+    if(si)si.style.background='#4CAF82';
+    if(sl)sl.textContent='Synced';
+    clearSaveWarning();
+  }catch(e){
+    console.log('Cloud save error:',e);
+    if(si)si.style.background='#E05C7A';
+    if(sl)sl.textContent='Sync failed';
+    showSaveWarning();
+  }
+}
+let saveWarningShown=false;
+function showSaveWarning(){
+  if(document.getElementById('save-warning-banner'))return;
+  saveWarningShown=true;
+  const b=document.createElement('div');
+  b.id='save-warning-banner';
+  b.innerHTML='<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E05C7A;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">⚠️ Last change not saved to cloud — check your internet.<button onclick="retrySave()" style="padding:4px 12px;background:#fff;color:#E05C7A;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer">Retry</button><button onclick="clearSaveWarning()" style="background:none;border:none;color:rgba(255,255,255,.8);font-size:20px;cursor:pointer;line-height:1">\u00D7</button></div>';
+  document.body.appendChild(b);
+}
+function clearSaveWarning(){
+  saveWarningShown=false;
+  const b=document.getElementById('save-warning-banner');
+  if(b)b.remove();
+}
+async function retrySave(){
+  const sl=document.getElementById('sync-label');
+  if(sl)sl.textContent='Retrying...';
+  await saveToCloud();
 }
 
 async function forceSyncToCloud(){
@@ -660,43 +648,6 @@ async function forceSyncToCloud(){
     showToast('Sync failed — check connection');
   }
   if(btn){btn.textContent='Force sync to cloud';btn.disabled=false;}
-}
-
-async function loadFromCloud(){
-  if(!currentUser)return;
-  try{
-    const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
-    if(data&&data.data){
-      const parsed=JSON.parse(data.data);
-      const cloudDB=parsed.db||{};
-      const cloudUpdated=data.updated_at?new Date(data.updated_at).getTime():0;
-      // Compare timestamps — newest wins
-      const localRaw=localStorage.getItem('fintrack2');
-      const localDB=localRaw?JSON.parse(localRaw):{};
-      const localUpdated=localStorage.getItem('ft-updated')?parseInt(localStorage.getItem('ft-updated')):0;
-      if(localUpdated>cloudUpdated){
-        // Local is newer — push to cloud
-        DB=localDB;
-        defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
-        migrateDB();
-        await saveToCloud();
-      } else {
-        // Cloud is newer or equal — use cloud, update local
-        DB=cloudDB;
-        defaultFromWalletId=parsed.defaultWallet||null;
-        migrateDB();
-        localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));
-        localStorage.setItem('ft-updated',cloudUpdated.toString());
-      }
-    } else {
-      // No cloud data yet — push local up
-      ld();
-      await saveToCloud();
-    }
-  }catch(e){
-    console.log('Cloud load error, using local:',e);
-    ld();
-  }
 }
 
 function ld(){
