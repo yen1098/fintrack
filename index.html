@@ -267,8 +267,11 @@ async function loadFromCloud(){
       // Update local cache
       try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
       console.log('[FinTrack] Loaded from cloud ✓');
-      // Migrate any base64 images to Storage in background
-      setTimeout(()=>migrateLocalImagesToStorage(),2000);
+      // Migrate any base64 images to Storage in background — safely, never blocks app
+      setTimeout(async()=>{
+        try{await migrateLocalImagesToStorage();}
+        catch(e){console.log('[FinTrack] Image migration skipped:',e.message);}
+      },3000);
     } else {
       // No cloud data — seed from local if available
       const localRaw=localStorage.getItem('fintrack2');
@@ -425,9 +428,9 @@ async function uploadImageToStorage(base64DataUrl, path){
 }
 
 async function getStorageUrl(path){
-  if(!path||path==='__local__')return null;
-  const {data}=supa.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-  return data?.publicUrl||null;
+  if(!path||path==='__local__'||path.startsWith('data:'))return null;
+  try{const {data}=supa.storage.from(STORAGE_BUCKET).getPublicUrl(path);return data?.publicUrl||null;}
+  catch(e){console.log('[FinTrack] getStorageUrl error:',e.message);return null;}
 }
 
 async function migrateImageToStorage(base64DataUrl, storagePath){
@@ -466,11 +469,11 @@ async function svQR(){
 
 // Called when displaying QR — resolves Storage path → URL, or returns base64 if local
 async function resolveImageUrl(imgVal){
-  if(!imgVal)return null;
-  if(imgVal.startsWith('data:'))return imgVal; // legacy base64
-  if(imgVal==='__local__')return null;
-  return await getStorageUrl(imgVal); // Storage path
+  if(!imgVal||imgVal==='__local__')return null;
+  if(imgVal.startsWith('data:'))return imgVal;
+  try{return await getStorageUrl(imgVal);}catch(e){return null;}
 }
+
 
 // Migrate any existing base64 QR/resource images to Storage on app load
 async function migrateLocalImagesToStorage(){
