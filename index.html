@@ -194,6 +194,14 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&AM){restoreModalDraft();}
 });
 
+// Best-effort save on page unload — localStorage is synchronous so it always works
+// The cloud save is async and NOT guaranteed to complete during unload
+window.addEventListener('beforeunload',()=>{
+  try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
+  // Best-effort cloud save — may not complete if page closes too fast
+  if(_saveQueued&&currentUser){_flushCloudSave();}
+});
+
 const BC={
   'BDO':['#003F8A','#fff'],'BPI':['#B22222','#fff'],'Metrobank':['#003366','#fff'],
   'UnionBank':['#E8621A','#fff'],'Security Bank':['#CC0000','#fff'],'Landbank':['#006400','#fff'],
@@ -244,6 +252,41 @@ async function signOut(){
   currentUser=null;
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
+}
+
+async function loadFromCloud(){
+  if(!currentUser)return;
+  try{
+    const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
+    if(data&&data.data){
+      // Cloud exists — always use it. Never let local override cloud.
+      const parsed=JSON.parse(data.data);
+      DB=parsed.db||{};
+      defaultFromWalletId=parsed.defaultWallet||null;
+      migrateDB();
+      // Update local cache
+      try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
+      console.log('[FinTrack] Loaded from cloud ✓');
+      // Migrate any base64 images to Storage in background
+      setTimeout(()=>migrateLocalImagesToStorage(),2000);
+    } else {
+      // No cloud data — seed from local if available
+      const localRaw=localStorage.getItem('fintrack2');
+      if(localRaw){
+        try{DB=JSON.parse(localRaw);}catch(e){DB={};}
+        migrateDB();
+        await _flushCloudSave(); // push local seed to cloud immediately
+        console.log('[FinTrack] No cloud data — seeded from local and pushed to cloud');
+      } else {
+        DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:''},notes:[]};
+        console.log('[FinTrack] Fresh start');
+      }
+    }
+  }catch(e){
+    console.log('[FinTrack] Cloud load error — using local fallback:',e);
+    try{const r=localStorage.getItem('fintrack2');if(r)DB=JSON.parse(r);}catch(e2){}
+    migrateDB();
+  }
 }
 
 async function initAuth(){
@@ -356,304 +399,166 @@ function showLogin(){
 function dbForStorage(){
   return JSON.parse(JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val));
 }
-
-async function forceSyncToCloud(){
-  const ind=document.getElementById('sync-indicator');
-  const lbl=document.getElementById('sync-label');
-  const btn=document.getElementById('force-sync-btn');
-  if(btn){btn.textContent='Syncing...';btn.disabled=true;}
-  if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
-  try{
-    localStorage.setItem('fintrack2',JSON.stringify(DB));
-    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
-    await saveToCloud();
-    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
-    showToast('All data synced to cloud ✓');
-  }catch(e){
-    showToast('Sync failed — check connection');
-  }
-  if(btn){btn.textContent='Force sync to cloud';btn.disabled=false;}
-}
-
-async function loadFromCloud(){
-  if(!currentUser)return;
-  try{
-    const {data,error}=await supa.from('fintrack_data').select('data,updated_at').eq('user_id',currentUser.id).single();
-    if(data&&data.data){
-      // Cloud exists — always use it. Never let local override cloud.
-      const parsed=JSON.parse(data.data);
-      DB=parsed.db||{};
-      defaultFromWalletId=parsed.defaultWallet||null;
-      migrateDB();
-      // Update local as a cache only (never used as source of truth)
-      try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
-      console.log('Loaded from cloud ✓');
-    } else {
-      // No cloud data at all — only then use local as seed
-      const localRaw=localStorage.getItem('fintrack2');
-      if(localRaw){
-        try{DB=JSON.parse(localRaw);}catch(e){DB={};}
-        migrateDB();
-        // Immediately push local seed to cloud
-        await saveToCloud();
-        console.log('No cloud data found — seeded from local and saved to cloud');
-      } else {
-        // Completely fresh — start empty
-        DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:''},notes:[]};
-        console.log('Fresh start');
-      }
-    }
-  }catch(e){
-    console.log('Cloud load error:',e);
-    // On error, try local as fallback — but do NOT push to cloud
-    try{const r=localStorage.getItem('fintrack2');if(r)DB=JSON.parse(r);}catch(e2){}
-    migrateDB();
-  }
-}
-
-function ld(){
-  try{
-    const d=localStorage.getItem('fintrack2');
-    if(d)DB=JSON.parse(d);
-    defaultFromWalletId=localStorage.getItem('ft-dflt-wallet')||null;
-    if(!d){const old=localStorage.getItem('fintrack');if(old)DB=JSON.parse(old);}
-    migrateDB();
-  }catch(e){}
-}
-
-function migrateDB(){
-  if(!DB.creditCards)DB.creditCards=[];
-  if(!DB.toSpend)DB.toSpend={base:0,label:'Monthly Income'};
-  if(!DB.wallets)DB.wallets=[];
-  if(!DB.transactions)DB.transactions=[];
-  if(!DB.funds)DB.funds=[];
-  if(!DB.tasks)DB.tasks=[];
-  if(!DB.borrowings)DB.borrowings=[];
-  if(!DB.resources)DB.resources=[];
-  if(!DB.bonuses)DB.bonuses=[];
-  if(!DB.transferGroups)DB.transferGroups=[];
-}
-
-const f$=n=>'₱'+Math.abs(Math.round(n)).toLocaleString();
-const td=()=>new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
-const vv=id=>{const e=document.getElementById(id);return e?e.value:'';};
-const gW=id=>DB.wallets.find(x=>x.id===id);
-const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
-// Per-transaction undo — snapshot stored ON the transaction itself (memory only, not persisted)
-function addTx(o){
-  // Snapshot current DB state (without any existing snaps to keep it lean)
-  const snap=JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val);
-  const tx={id:uid(),rawDate:new Date().toISOString(),...o,date:td(),_snap:snap};
-  DB.transactions.unshift(tx);
-  // Only keep _snap on the 10 most recent transactions — clear the rest
-  DB.transactions.forEach((t,i)=>{if(i>=10)delete t._snap;});
-  sv();
-}
-
-function undoTx(txId){
-  const tx=DB.transactions.find(x=>x.id===txId);
-  if(!tx||!tx._snap){return showToast('No undo data for this transaction');}
-  if(!confirm('Undo this transaction? All wallet/fund balances will revert to before this action.'))return;
-  DB=JSON.parse(tx._snap);
-  sv();showToast('Transaction undone ↩');render();
-}
-
-function showToast(msg='✓ Done!',emoji=''){
-  const el=document.getElementById('toast');
-  el.textContent=(emoji?emoji+' ':'')+msg;
-  el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),1800);
-}
-
-function tasksDueSoon(){
-  const now=new Date();const future=new Date();future.setDate(future.getDate()+3);
-  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=future).length;
-}
-
-const SVGMAP={
-  list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-  calendar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
-  exchange:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3M17 8v8m0 0l3-3m-3 3l-3-3"/></svg>',
-  qrcode:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>',
-  trophy:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M6 3H3a1 1 0 00-1 1v2a4 4 0 004 4h1M18 3h3a1 1 0 011 1v2a4 4 0 01-4 4h-1"/><path d="M6 3h12v8a6 6 0 01-12 0V3z"/></svg>',
-  notes:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 12h8M8 16h5"/></svg>',
-  food:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a5 5 0 015 5H7a5 5 0 015-5zM7 7h10v2a5 5 0 01-10 0V7z"/><path d="M12 14v8"/></svg>',
-  bolt:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
-  car:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a1 1 0 01-1-1v-4l2-6h16l2 6v4a1 1 0 01-1 1h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
-  cart:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 01-8 0"/></svg>',
-  receipt:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l3-2 2 2 2-2 2 2 2-2 2 2 3-2V2"/><path d="M8 10h8M8 14h5"/></svg>',
-  film:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>',
-  stack:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
-  star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
-  other:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
-  eye:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-  eyeoff:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-};
-
-function renderDesktopRight(){
-  const panel=document.getElementById('desktop-right');if(!panel)return;
-  const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+3);
-  const due=tasksDueSoon();
-  const pendingTasks=DB.tasks.filter(t=>!t.done);
-  const pendingXfers=[];
-  DB.transferGroups.forEach(g=>g.transfers.forEach(t=>{
-    if(!(t.fundId?t.transferred:t.done)){
-      const fw=t.fromWalletId?gW(t.fromWalletId):null;
-      const tw=t.toWalletId?gW(t.toWalletId):null;
-      const fd=t.fundId?DB.funds.find(x=>x.id===t.fundId):null;
-      const fromName=fw?fw.name:t.fromWalletName||t.from||'—';const toName=fd?fd.name:tw?tw.name:t.toWalletName||t.to||'—';pendingXfers.push({title:t.title||'Transfer',amount:t.amount,from:fromName,to:toName,gid:g.id,tid:t.id,fundId:t.fundId,transferred:t.transferred,done:t.done});
-    }
+function dbForCloud(){
+  // Strip _snap AND base64 images — images go to Supabase Storage, not the JSON payload
+  return JSON.parse(JSON.stringify(DB,(key,val)=>{
+    if(key==='_snap')return undefined;
+    // Strip base64 blobs — replaced by Storage paths set during upload
+    if((key==='qrImg'||key==='img')&&typeof val==='string'&&val.startsWith('data:'))return null;
+    // '__local__' sentinel from old saves — treat as null
+    if((key==='qrImg'||key==='img')&&val==='__local__')return null;
+    return val;
   }));
-
-  panel.innerHTML=`
-    <div style="padding:18px 16px;border-bottom:.5px solid rgba(0,0,0,.06)">
-      <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.3px;margin-bottom:10px">PENDING TRANSFERS</div>
-      ${pendingXfers.length?pendingXfers.slice(0,6).map(x=>`<div style="padding:8px 10px;background:#F9FAFB;border-radius:10px;margin-bottom:6px;border:.5px solid #EBEBEB">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:600;color:#1A1A2E">${esc(x.title)}</span>
-          <span style="font-size:11px;font-weight:700;color:#4CAF82">${f$(x.amount)}</span>
-        </div>
-        <div style="font-size:10px;color:#9CA3AF;margin-bottom:5px">${esc(x.from)} \u2192 ${esc(x.to)}</div>
-        <div style="display:flex;gap:5px">
-          ${x.fundId?(!x.transferred?`<button onclick="pendingConfirm={type:'xferItem',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2192 Transferred</button>`:''): (!x.transferred?`<button onclick="pendingConfirm={type:'xferItem',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#EAF3DE;color:#27500A;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2192 Transferred</button>`:'')}
-          ${!x.fundId&&x.transferred&&!x.done?`<button onclick="pendingConfirm={type:'xferDone',id:'${x.tid}',gid:'${x.gid}'};AM='confirm';render()" style="padding:3px 8px;background:#E6F1FB;color:#0C447C;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">\u2713 Done</button>`:''}
-        </div>
-      </div>`).join(''):`<div style="font-size:12px;color:#9CA3AF;text-align:center;padding:10px">No pending transfers</div>`}
-    </div>
-
-    <div style="padding:18px 16px;border-bottom:.5px solid rgba(0,0,0,.06)">
-      <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.3px;margin-bottom:10px">REMINDERS${due>0?` <span style="background:#FF3B30;color:#fff;font-size:9px;font-weight:600;border-radius:99px;padding:1px 6px;margin-left:4px">${due}</span>`:''}</div>
-      ${pendingTasks.length?pendingTasks.slice(0,6).map(t=>{
-        const isOverdue=t.due&&new Date(t.due)<now;
-        const isDue=!isOverdue&&t.due&&new Date(t.due)<=soon;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #F4F4F4">
-          <div onclick="dTask('${t.id}')" style="width:15px;height:15px;border-radius:4px;border:1.5px solid ${isOverdue?'#E05C7A':isDue?'#EF9F27':'#D1D5DB'};flex-shrink:0;cursor:pointer;background:${isOverdue?'#FFF0F0':'#fff'}"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:500;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
-            <div style="font-size:10px;color:${isOverdue?'#E05C7A':isDue?'#EF9F27':'#9CA3AF'};font-weight:${isOverdue||isDue?'600':'400'}">${isOverdue?'Past due':t.due||'No due date'}${t.amt>0?' \u00B7 '+f$(t.amt):''}</div>
-          </div>
-        </div>`;
-      }).join(''):`<div style="font-size:12px;color:#9CA3AF;text-align:center;padding:8px">All clear!</div>`}
-    </div>
-
-    <div style="padding:20px 18px;border-bottom:.5px solid rgba(0,0,0,.06)">
-      <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.8px;margin-bottom:10px">CALCULATOR</div>
-      <div style="position:relative">
-      <input id="calc-display" type="text" value="0" oninput="calcExpr=this.value" onfocus="showCalcCopy()" onpaste="setTimeout(()=>{calcExpr=document.getElementById('calc-display').value;},10)" style="background:#F5F5F7;border:none;outline:none;border-radius:10px;padding:10px 14px;font-size:22px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;height:48px;width:100%;letter-spacing:-.5px;cursor:text;font-family:-apple-system,sans-serif">
-      <div id="calc-copy-btn" onclick="copyCalcValue()" style="display:none;position:absolute;top:-30px;right:0;background:#1A1A2E;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;cursor:pointer;z-index:10">Copy</div>
-    </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
-        <button onclick="calcInput('AC')" style="padding:10px 4px;background:#FFE5E5;color:#C0192C;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">AC</button>
-        <button onclick="calcInput('⌫')" style="padding:10px 4px;background:#F5F5F7;color:#8E8E93;border:none;border-radius:8px;font-size:16px;font-weight:400;cursor:pointer">⌫</button>
-        <button onclick="calcInput('(')" style="padding:10px 4px;background:#F5F5F7;color:#4CAF82;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">(</button>
-        <button onclick="calcInput(')')" style="padding:10px 4px;background:#F5F5F7;color:#4CAF82;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">)</button>
-        ${[[7,8,9,'/'],[4,5,6,'*'],[1,2,3,'-']].map(row=>row.map(k=>{
-          const isOp=['/','*','-'].includes(k+'');
-          return `<button onclick="calcInput('${k}')" style="padding:10px 4px;background:${isOp?'#F5F5F7':'#fff'};color:${isOp?'#4CAF82':'#1A1A2E'};border:.5px solid rgba(0,0,0,.07);border-radius:8px;font-size:${isOp?'16':'14'}px;font-weight:${isOp?'500':'400'};cursor:pointer">${k}</button>`;
-        }).join('')).join('')}
-        <button onclick="calcInput('0')" style="grid-column:1/3;padding:10px 14px;background:#fff;color:#1A1A2E;border:.5px solid rgba(0,0,0,.07);border-radius:8px;font-size:14px;font-weight:400;cursor:pointer;text-align:left">0</button>
-        <button onclick="calcInput('.')" style="padding:10px 4px;background:#fff;color:#1A1A2E;border:.5px solid rgba(0,0,0,.07);border-radius:8px;font-size:14px;font-weight:400;cursor:pointer">.</button>
-        <button onclick="calcInput('+')" style="padding:10px 4px;background:#F5F5F7;color:#4CAF82;border:none;border-radius:8px;font-size:18px;font-weight:400;cursor:pointer">+</button>
-        <button onclick="calcInput('=')" style="grid-column:1/5;padding:11px;background:#1A1A2E;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.5px">=</button>
-      </div>
-    </div>
-
-    <div style="padding:18px 16px">
-      <div style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.3px;margin-bottom:10px">QUICK ACTIONS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button onclick="oM('expense')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#FFF2F2;border:none;border-radius:12px;cursor:pointer">
-          <div style="width:30px;height:30px;border-radius:9px;background:#FFE5E5;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
-          <span style="font-size:11px;font-weight:500;color:#FF3B30">Expense</span>
-        </button>
-        <button onclick="oM('income')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F2FFF5;border:none;border-radius:12px;cursor:pointer">
-          <div style="width:30px;height:30px;border-radius:9px;background:#E5FFE9;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34C759" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-          <span style="font-size:11px;font-weight:500;color:#34C759">Income</span>
-        </button>
-        <button onclick="oM('qtransfer')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F5F2FF;border:none;border-radius:12px;cursor:pointer">
-          <div style="width:30px;height:30px;border-radius:9px;background:#EDE9FE;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V8m0 0l-3 3m3-3l3 3"/><path d="M17 8v8m0 0l3-3m-3 3l-3-3"/></svg></div>
-          <span style="font-size:11px;font-weight:500;color:#5B21B6">Transfers</span>
-        </button>
-        <button onclick="goTo('tasks')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;background:#F2F6FF;border:none;border-radius:12px;cursor:pointer;position:relative">
-          <div style="width:30px;height:30px;border-radius:9px;background:#E6F1FB;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <span style="font-size:11px;font-weight:500;color:#007AFF">Tasks</span>
-          ${due>0?`<span style="position:absolute;top:8px;right:8px;background:#FF3B30;color:#fff;font-size:9px;font-weight:600;border-radius:99px;padding:1px 5px">${due}</span>`:''}
-        </button>
-      </div>
-    </div>`;
 }
 
+// ── Supabase Storage helpers ─────────────────────────────────────────────────
+const STORAGE_BUCKET='fintrack-images';
 
-
-// Strip _snap fields before persisting — snaps are memory-only
-function dbForStorage(){
-  return JSON.parse(JSON.stringify(DB,(key,val)=>key==='_snap'?undefined:val));
+async function uploadImageToStorage(base64DataUrl, path){
+  // Convert data URL to Blob
+  const res=await fetch(base64DataUrl);
+  const blob=await res.blob();
+  const {data,error}=await supa.storage.from(STORAGE_BUCKET).upload(path,blob,{upsert:true,contentType:blob.type||'image/png'});
+  if(error)throw error;
+  console.log(`[FinTrack] Storage upload OK: ${path}`);
+  return path;
 }
+
+async function getStorageUrl(path){
+  if(!path||path==='__local__')return null;
+  const {data}=supa.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  return data?.publicUrl||null;
+}
+
+async function migrateImageToStorage(base64DataUrl, storagePath){
+  // Upload to Storage, return the path on success
+  try{
+    await uploadImageToStorage(base64DataUrl, storagePath);
+    return storagePath;
+  }catch(e){
+    console.log('[FinTrack] Storage upload failed:',e.message);
+    throw e;
+  }
+}
+
+// Called after QR upload — migrate base64 to Storage
+async function svQR(){
+  const w=DB.wallets.find(x=>x.id===aWalQR);if(!w)return;
+  const file=document.getElementById('mqrf')?.files?.[0];if(!file)return;
+  const rd=new FileReader();
+  rd.onload=async e=>{
+    const base64=e.target.result;
+    const path=`${currentUser.id}/wallet-qr/${w.id}.png`;
+    try{
+      await migrateImageToStorage(base64,path);
+      w.qrImg=path; // store path, not base64
+      w._qrBase64=null; // clear any local base64
+      sv();cM();goTo('wallets');showToast('QR saved ✓');
+    }catch(err){
+      // Storage failed — keep base64 locally, warn user
+      w.qrImg=base64; // keep locally
+      sv();cM();goTo('wallets');
+      showToast('QR saved locally — cloud upload failed');
+    }
+  };
+  rd.readAsDataURL(file);
+}
+
+// Called when displaying QR — resolves Storage path → URL, or returns base64 if local
+async function resolveImageUrl(imgVal){
+  if(!imgVal)return null;
+  if(imgVal.startsWith('data:'))return imgVal; // legacy base64
+  if(imgVal==='__local__')return null;
+  return await getStorageUrl(imgVal); // Storage path
+}
+
+// Migrate any existing base64 QR/resource images to Storage on app load
+async function migrateLocalImagesToStorage(){
+  if(!currentUser)return;
+  let migrated=0;
+  // Wallets
+  for(const w of DB.wallets){
+    if(w.qrImg&&w.qrImg.startsWith('data:')){
+      const path=`${currentUser.id}/wallet-qr/${w.id}.png`;
+      try{
+        await migrateImageToStorage(w.qrImg,path);
+        w.qrImg=path;
+        migrated++;
+      }catch(e){console.log('[FinTrack] QR migration failed for wallet',w.id,e.message);}
+    }
+  }
+  // Resources
+  for(const r of (DB.resources||[])){
+    if(r.img&&r.img.startsWith('data:')){
+      const path=`${currentUser.id}/resource/${r.id}.png`;
+      try{
+        await migrateImageToStorage(r.img,path);
+        r.img=path;
+        migrated++;
+      }catch(e){console.log('[FinTrack] Image migration failed for resource',r.id,e.message);}
+    }
+  }
+  if(migrated>0){
+    console.log(`[FinTrack] Migrated ${migrated} image(s) to Storage`);
+    sv(); // save with Storage paths replacing base64
+  }
+}
+
+// ── Debounced save queue ─────────────────────────────────────────────────────
+let _saveTimer=null,_saveInProgress=false,_saveQueued=false,_saveSeq=0;
 
 function sv(){
   try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
-  saveToCloud();
+  _saveQueued=true;
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>_flushCloudSave(),1500);
 }
 
-async function saveToCloud(){
-  if(!currentUser)return;
-  const si=document.getElementById('sync-indicator');
-  const sl=document.getElementById('sync-label');
+async function _flushCloudSave(){
+  if(!currentUser){return;}
+  if(_saveInProgress){_saveQueued=true;console.log('[FinTrack] Save coalesced');return;}
+  _saveInProgress=true;_saveQueued=false;
+  const seq=++_saveSeq;
+  const si=document.getElementById('sync-indicator'),sl=document.getElementById('sync-label');
+  if(si)si.style.background='#EF9F27';if(sl)sl.textContent='Saving...';
+  const payload=JSON.stringify({db:dbForCloud(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
+  console.log(`[FinTrack] Cloud save started — ${(payload.length/1024).toFixed(1)} KB (seq ${seq})`);
   try{
-    if(si)si.style.background='#EF9F27';
-    if(sl)sl.textContent='Saving...';
-    const payload=JSON.stringify({db:dbForStorage(),defaultWallet:defaultFromWalletId,savedAt:Date.now()});
     const {error}=await supa.from('fintrack_data').upsert({user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id'});
     if(error)throw error;
-    if(si)si.style.background='#4CAF82';
-    if(sl)sl.textContent='Synced';
-    clearSaveWarning();
+    if(seq>=_saveSeq){if(si)si.style.background='#4CAF82';if(sl)sl.textContent='Synced';clearSaveWarning();}
+    console.log(`[FinTrack] Cloud save completed (seq ${seq})`);
   }catch(e){
-    console.log('Cloud save error:',e);
-    if(si)si.style.background='#E05C7A';
-    if(sl)sl.textContent='Sync failed';
-    showSaveWarning();
+    console.log('[FinTrack] Cloud save failed:',e);
+    if(si)si.style.background='#E05C7A';if(sl)sl.textContent='Sync failed';showSaveWarning();
+  }finally{
+    _saveInProgress=false;
+    if(_saveQueued){console.log('[FinTrack] Flushing queued save');_flushCloudSave();}
   }
 }
-let saveWarningShown=false;
+async function saveToCloud(){return _flushCloudSave();}
+
 function showSaveWarning(){
   if(document.getElementById('save-warning-banner'))return;
-  saveWarningShown=true;
-  const b=document.createElement('div');
-  b.id='save-warning-banner';
-  b.innerHTML='<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E05C7A;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">⚠️ Last change not saved to cloud — check your internet.<button onclick="retrySave()" style="padding:4px 12px;background:#fff;color:#E05C7A;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer">Retry</button><button onclick="clearSaveWarning()" style="background:none;border:none;color:rgba(255,255,255,.8);font-size:20px;cursor:pointer;line-height:1">\u00D7</button></div>';
+  const b=document.createElement('div');b.id='save-warning-banner';
+  b.innerHTML='<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E05C7A;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">⚠️ Last change not saved to cloud — check your internet.<button onclick="retrySave()" style="padding:4px 12px;background:#fff;color:#E05C7A;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer">Retry</button><button onclick="clearSaveWarning()" style="background:none;border:none;color:rgba(255,255,255,.8);font-size:20px;cursor:pointer;line-height:1">×</button></div>';
   document.body.appendChild(b);
 }
-function clearSaveWarning(){
-  saveWarningShown=false;
-  const b=document.getElementById('save-warning-banner');
-  if(b)b.remove();
-}
-async function retrySave(){
-  const sl=document.getElementById('sync-label');
-  if(sl)sl.textContent='Retrying...';
-  await saveToCloud();
-}
+function clearSaveWarning(){const b=document.getElementById('save-warning-banner');if(b)b.remove();}
+async function retrySave(){clearTimeout(_saveTimer);const sl=document.getElementById('sync-label');if(sl)sl.textContent='Retrying...';await _flushCloudSave();}
 
 async function forceSyncToCloud(){
-  const ind=document.getElementById('sync-indicator');
-  const lbl=document.getElementById('sync-label');
-  const btn=document.getElementById('force-sync-btn');
+  clearTimeout(_saveTimer);
+  const ind=document.getElementById('sync-indicator'),lbl=document.getElementById('sync-label'),btn=document.getElementById('force-sync-btn');
   if(btn){btn.textContent='Syncing...';btn.disabled=true;}
   if(ind){ind.style.background='#EF9F27';if(lbl)lbl.textContent='Syncing...';}
   try{
-    localStorage.setItem('fintrack2',JSON.stringify(DB));
-    localStorage.setItem('ft-dflt-wallet',defaultFromWalletId||'');
-    await saveToCloud();
-    if(ind){ind.style.background='#3B6D11';if(lbl)lbl.textContent='Synced to cloud';}
+    try{localStorage.setItem('fintrack2',JSON.stringify(dbForStorage()));}catch(e){}
+    await _flushCloudSave();
     showToast('All data synced to cloud ✓');
-  }catch(e){
-    showToast('Sync failed — check connection');
-  }
+  }catch(e){showToast('Sync failed — check connection');}
   if(btn){btn.textContent='Force sync to cloud';btn.disabled=false;}
 }
-
 function ld(){
   try{
     const d=localStorage.getItem('fintrack2');
@@ -686,7 +591,8 @@ function addTx(o){
   DB.transactions.unshift(tx);
   // Only keep _snap on the 10 most recent transactions — clear the rest
   DB.transactions.forEach((t,i)=>{if(i>=10)delete t._snap;});
-  sv();
+  // NOTE: do NOT call sv() here — the calling function must call sv() once after
+  // all mutations are complete. This prevents duplicate cloud saves.
 }
 
 function undoTx(txId){
@@ -1969,15 +1875,38 @@ function bRes(){
 }
 
 let viewingQRId=null,viewingQRSource=null;
-function viewQR(id){const r=DB.resources.find(x=>x.id===id);if(!r||!r.img)return;viewingQRId=id;viewingQRSource='resource';const ov=document.getElementById('qr-overlay');document.getElementById('qr-fullimg').src=r.img;document.getElementById('qr-fulllabel').textContent=r.label||'';document.getElementById('qr-fullref').textContent=r.ref||'';ov.style.display='flex';}
-function viewWalQR(id){const w=DB.wallets.find(x=>x.id===id);if(!w||!w.qrImg)return;viewingQRId=id;viewingQRSource='wallet';const ov=document.getElementById('qr-overlay');document.getElementById('qr-fullimg').src=w.qrImg;document.getElementById('qr-fulllabel').textContent=w.name||'';document.getElementById('qr-fullref').textContent=w.acct||w.bank||'';ov.style.display='flex';}
+async function viewQR(id){
+  const r=DB.resources.find(x=>x.id===id);if(!r||!r.img)return;
+  viewingQRId=id;viewingQRSource='resource';
+  const ov=document.getElementById('qr-overlay');
+  const imgEl=document.getElementById('qr-fullimg');
+  document.getElementById('qr-fulllabel').textContent=r.label||'';
+  document.getElementById('qr-fullref').textContent=r.ref||'';
+  imgEl.src='';
+  const url=await resolveImageUrl(r.img);
+  if(url)imgEl.src=url;else imgEl.alt='Image unavailable';
+  ov.style.display='flex';
+}
+async function viewWalQR(id){
+  const w=DB.wallets.find(x=>x.id===id);if(!w||!w.qrImg)return;
+  viewingQRId=id;viewingQRSource='wallet';
+  const ov=document.getElementById('qr-overlay');
+  const imgEl=document.getElementById('qr-fullimg');
+  document.getElementById('qr-fulllabel').textContent=w.name||'';
+  document.getElementById('qr-fullref').textContent=w.acct||w.bank||'';
+  imgEl.src='';
+  const url=await resolveImageUrl(w.qrImg);
+  if(url)imgEl.src=url;else imgEl.alt='Image unavailable';
+  ov.style.display='flex';
+}
 function closeQR(){const ov=document.getElementById('qr-overlay');if(ov)ov.style.display='none';viewingQRId=null;viewingQRSource=null;}
 async function shareQR(){
   const src=viewingQRSource==='wallet'?DB.wallets.find(x=>x.id===viewingQRId):DB.resources.find(x=>x.id===viewingQRId);
-  const img=src&&(src.qrImg||src.img);if(!img)return;
-  try{const res=await fetch(img);const blob=await res.blob();const file=new File([blob],(src.label||src.name||'qr')+'.png',{type:'image/png'});
+  const imgVal=src&&(src.qrImg||src.img);if(!imgVal)return;
+  const url=await resolveImageUrl(imgVal);if(!url)return showToast('Image unavailable');
+  try{const res=await fetch(url);const blob=await res.blob();const file=new File([blob],(src.label||src.name||'qr')+'.png',{type:'image/png'});
     if(navigator.share&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:src.label||src.name||'QR Code',text:src.ref||src.acct||''});}
-    else{const a=document.createElement('a');a.href=img;a.download=(src.label||src.name||'qr')+'.png';a.click();}
+    else{const a=document.createElement('a');a.href=url;a.download=(src.label||src.name||'qr')+'.png';a.click();}
   }catch(e){console.log('Share cancelled');}
 }
 function confirmDeleteResource(){
@@ -2570,7 +2499,8 @@ function svInc(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc')||'Other',w=vv('mw'),no=vv('mno');
   if(!n||!a||!w)return alert('Please fill in name, amount, and wallet');
   const wd=gW(w);if(!wd)return;wd.currentBalance+=a;wd.actualBalance+=a;
-  addTx({type:'income',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});cM();goTo('home');
+  addTx({type:'income',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no});
+  sv();cM();goTo('home');
 }
 function svQT(){
   const fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno');
@@ -2579,7 +2509,7 @@ function svQT(){
   fw.currentBalance-=a;fw.actualBalance-=a;tw.currentBalance+=a;tw.actualBalance+=a;
   addTx({type:'expense',name:`Transfer → ${tw.name}`,amount:a,cat:'Transfer',walletId:fw.id,walletName:fw.name,note:no});
   addTx({type:'income',name:`Transfer ← ${fw.name}`,amount:a,cat:'Transfer',walletId:tw.id,walletName:tw.name,note:no});
-  cM();goTo('home');
+  sv();cM();goTo('home');
 }
 function svWal(){
   const n=vv('mwn'),bk=vv('mbk'),t=vv('mwt'),ac=vv('mac'),b=parseFloat(vv('mwb'))||0;
@@ -2605,7 +2535,7 @@ function svFI(){
   const fd=DB.funds.find(x=>x.id==aFund);
   if(fd){if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}fd.total+=a;}
   addTx({type:'income',name:d||'Fund top-up',amount:a,cat:'Fund',walletId:'',walletName:'',note:''});
-  cM();goTo('funds');
+  sv();cM();goTo('funds');
 }
 function svFU(){
   const a=parseFloat(vv('mfa')),d=vv('mfd');if(!a)return alert('Please enter an amount');
@@ -2615,7 +2545,7 @@ function svFU(){
   fd.spent+=a;if(!fd.uses)fd.uses=[];fd.uses.unshift({amt:a,desc:d||fd.name+' use',date:td(),rawDate:new Date().toISOString()});
   if(wd){wd.currentBalance-=a;wd.actualBalance-=a;}
   addTx({type:'expense',name:d||(fd?fd.name+' use':'Fund use'),amount:a,cat:'Fund',walletId:w||'',walletName:wd?wd.name:'',note:''});
-  cM();goTo('funds');
+  sv();cM();goTo('funds');
 }
 function svTask(){
   const n=vv('mtn'),a=parseFloat(vv('mta'))||0,d=vv('mtd'),freqN=vv('mtfreqn'),freqU=vv('mtfrequ'),w=vv('mtw'),fi=vv('mtf'),no=vv('mtn2');
@@ -2632,10 +2562,8 @@ function svBor(){
   DB.borrowings.push({id:uid(),name:n,total:a,paid:0,dir,walletId:dir==='lent'?w:'',walletName:wd?wd.name:'',due,payments:[]});
   if(dir==='lent'&&wd){
     addTx({type:'expense',name:'Lent to '+n,amount:a,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing record'});
-  } else {
-    sv(); // must save for 'owe' records since addTx isn't called
   }
-  cM();goTo('borrowing');
+  sv();cM();goTo('borrowing');
 }
 function svPay(){
   const a=parseFloat(vv('mpa')),w=vv('mpw');if(!a||!w)return alert('Please fill all fields');
@@ -2647,11 +2575,30 @@ function svPay(){
   addTx({type:b.dir==='lent'?'income':'expense',name:'Payment '+(b.dir==='lent'?'from':'to')+' '+b.name,amount:actual,cat:'Other',walletId:w,walletName:wd.name,note:'Borrowing settlement'});
   cM();goTo('borrowing');
 }
-function svRes(){
+async function svRes(){
   const l=vv('mrl'),g=vv('mrg')||'Uncategorized',r=vv('mrr'),t=vv('mrt');if(!l)return alert('Please enter a label');
   const inp=document.getElementById('mri');const file=inp&&inp.files[0];
-  if(file){const rd=new FileReader();rd.onload=e=>{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:e.target.result});sv();cM();goTo('resources');};rd.readAsDataURL(file);}
-  else{DB.resources.push({id:uid(),label:l,group:g,ref:r,rtype:t,img:null});sv();cM();goTo('resources');}
+  const resId=uid();
+  if(file){
+    const rd=new FileReader();
+    rd.onload=async e=>{
+      const base64=e.target.result;
+      const path=`${currentUser.id}/resource/${resId}.png`;
+      try{
+        await migrateImageToStorage(base64,path);
+        DB.resources.push({id:resId,label:l,group:g,ref:r,rtype:t,img:path});
+      }catch(err){
+        // Storage upload failed — keep base64 locally
+        DB.resources.push({id:resId,label:l,group:g,ref:r,rtype:t,img:base64});
+        showToast('Image saved locally — cloud upload failed');
+      }
+      sv();cM();goTo('resources');
+    };
+    rd.readAsDataURL(file);
+  } else {
+    DB.resources.push({id:resId,label:l,group:g,ref:r,rtype:t,img:null});
+    sv();cM();goTo('resources');
+  }
 }
 function svBonus(){
   const n=vv('mbon'),a=parseFloat(vv('mbona')),w=vv('mbonw');if(!n||!a||!w)return alert('Please fill all fields');
@@ -2667,11 +2614,7 @@ function svBU(){
   addTx({type:'expense',name:d||'Bonus use',amount:a,cat:'Bonus',walletId:w,walletName:wd.name,note:'From bonus: '+b.name});
   sv();cM();goTo('bonuses');
 }
-function svQR(){
-  const inp=document.getElementById('mqrf');const file=inp&&inp.files[0];const w=DB.wallets.find(x=>x.id===aWalQR);
-  if(!file||!w)return alert('Please select an image first');
-  const r=new FileReader();r.onload=e=>{w.qrImg=e.target.result;sv();cM();goTo('wallets');};r.readAsDataURL(file);
-}
+// svQR is defined above near the Storage helpers
 function svGroup(){
   const n=vv('mgn');if(!n)return alert('Please enter a group name');
   const tmplId=vv('mtmpl');let transfers=[];
