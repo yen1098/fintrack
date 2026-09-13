@@ -583,6 +583,8 @@ function migrateDB(){
   if(!DB.resources)DB.resources=[];
   if(!DB.bonuses)DB.bonuses=[];
   if(!DB.transferGroups)DB.transferGroups=[];
+  if(!DB.notes)DB.notes=[];
+  // Wrap render in try-catch so a single bad screen doesn't blank the whole app
 }
 
 
@@ -616,6 +618,7 @@ function showToast(msg='✓ Done!',emoji=''){
 
 function goTo(s){CS=s;render();}
 function render(){
+  try{
   const screens={home:bHome,wallets:bWallets,funds:bFunds,transfers:bTransfers,more:bMore,tasks:bTasks,borrowing:bBorrow,resources:bRes,bonuses:bBonus,ledger:bLedger,notes:bNotes};
   const shEl=document.getElementById('sh');
   const ct=document.querySelector('.ct');
@@ -646,6 +649,12 @@ function render(){
     n.classList.toggle('active',t===CS||(t==='more'&&sub.includes(CS)));
   });
   if(AM)setTimeout(restoreModalDraft,30);
+  }catch(err){
+    console.error('[FinTrack] render() error:',err);
+    // Show error in app instead of blank screen
+    const shEl=document.getElementById('sh');
+    if(shEl)shEl.innerHTML='<div style="padding:20px;color:red;font-size:13px">Render error: '+err.message+'<br><br><button onclick="location.reload()">Reload</button></div>';
+  }
 }
 
 function nav(){
