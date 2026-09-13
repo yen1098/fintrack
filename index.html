@@ -616,6 +616,12 @@ function showToast(msg='✓ Done!',emoji=''){
 }
 
 
+function tasksDueSoon(){
+  const now=new Date();
+  const soon=new Date();soon.setDate(soon.getDate()+3);
+  return DB.tasks.filter(t=>!t.done&&t.due&&new Date(t.due)<=soon).length;
+}
+
 function goTo(s){CS=s;render();}
 function render(){
   try{
