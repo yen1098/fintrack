@@ -24,10 +24,10 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);font-family:
 .abi{font-size:22px;color:#8E8E93;cursor:pointer;padding:2px 4px;position:relative}
 .badge-red{position:absolute;top:-4px;right:-4px;background:#E84393;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center}
 .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.ct{flex:1;min-height:0;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:160px}
+.ct{flex:1;min-height:0;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:150px}
 .card{background:var(--white);border-radius:18px;border:.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
 .slbl{font-size:10px;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
-.bn{background:#fff;border-top:.5px solid #f0f0f0;display:flex;padding:10px 0 calc(env(safe-area-inset-bottom,0px) + 24px);flex-shrink:0;position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
+.bn{background:#fff;border-top:.5px solid #f0f0f0;display:flex;padding:10px 0 10px;flex-shrink:0;position:fixed;bottom:env(safe-area-inset-bottom,0px);left:0;right:0;max-width:430px;margin:0 auto;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
 .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;position:relative}
 .nic{font-size:22px;line-height:1;filter:grayscale(1);opacity:.35;display:flex;align-items:center;justify-content:center;width:24px;height:24px}
 .nil{font-size:9px;color:#ccc;font-weight:600}
@@ -412,7 +412,6 @@ function renderDesktopSidebar(){
           </div>
         </div>
       </div>
-      <button id="force-sync-btn" onclick="forceSyncToCloud()" style="width:100%;padding:7px;background:#1A1A2E;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:6px">Sync to Cloud</button>
       <button onclick="pendingConfirm={type:'signout'};AM='deleteConfirm';render()" style="width:100%;padding:7px;background:#F4F6F9;color:#6B7280;border:.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">Sign out</button>
     </div>`;
 }
@@ -546,6 +545,23 @@ function sv(){
 }
 
 // ── Dirty / unsynced state ────────────────────────────────────────────────────
+async function mobileSyncTap(){
+  const btn=document.getElementById('mobile-sync-btn');
+  const icon=document.getElementById('mobile-sync-icon');
+  if(!hasUnsyncedChanges()){
+    // Already synced - show brief check
+    if(btn){btn.style.background='#EAF3DE';}
+    showToast('Already synced ✓');
+    return;
+  }
+  // Show spinning/loading state
+  if(btn){btn.style.background='#E6F1FB';btn.style.opacity='.7';}
+  await forceSyncToCloud();
+  // forceSyncToCloud calls markSynced which calls _updateSyncUI
+  // Re-render to update the icon state
+  render();
+}
+
 function markDirty(){
   localStorage.setItem('fintrack-cloud-dirty','1');
   _updateSyncUI(false);
@@ -560,18 +576,12 @@ function hasUnsyncedChanges(){
   return localStorage.getItem('fintrack-cloud-dirty')==='1';
 }
 function _updateSyncUI(synced){
+  // Update desktop sidebar sync indicator if present
   const si=document.getElementById('sync-indicator');
   const sl=document.getElementById('sync-label');
-  const btn=document.getElementById('force-sync-btn');
-  if(synced){
-    if(si)si.style.background='#4CAF82';
-    if(sl)sl.textContent='Synced';
-    if(btn){btn.textContent='Sync to Cloud';btn.disabled=false;btn.style.opacity='1';}
-  } else {
-    if(si)si.style.background='#EF9F27';
-    if(sl)sl.textContent='Unsynced changes';
-    if(btn){btn.textContent='Sync to Cloud';btn.disabled=false;btn.style.opacity='1';}
-  }
+  if(si)si.style.background=synced?'#4CAF82':'#EF9F27';
+  if(sl)sl.textContent=synced?'Synced':'Unsynced changes';
+  // Mobile cloud icon re-renders via render() call in mobileSyncTap
 }
 
 async function _flushCloudSave(){
@@ -1296,8 +1306,16 @@ function bHome(){
   return `<div class="screen" style="position:relative">
     <div class="ab">
       <span class="abt">${isDesktop()?'Home':'FinTrack'}</span>
-      ${!isDesktop()&&hasUnsyncedChanges()?`<span style="width:8px;height:8px;border-radius:50%;background:#EF9F27;display:inline-block;margin-right:4px" title="Unsynced changes"></span>`:''}
-      <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
+        ${!isDesktop()?`<span id="mobile-sync-btn" onclick="mobileSyncTap()" style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${hasUnsyncedChanges()?'#FFF3CD':'#EAF3DE'};transition:all .3s" title="${hasUnsyncedChanges()?'Tap to sync':'Synced'}">
+          <svg id="mobile-sync-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${hasUnsyncedChanges()?'#EF9F27':'#4CAF82'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${hasUnsyncedChanges()
+              ?'<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="16 16 18 18 22 14"/>'
+              :'<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="9 12 12 15 16 11"/>'}
+          </svg>
+        </span>`:''}
+      </div>
     </div>
     <div class="ct" style="padding-bottom:160px;background:#f0f2f5;overflow-y:auto;min-height:0;flex:1">
 
@@ -1368,7 +1386,7 @@ function bHome(){
     </div>
 
     <!-- QUICK ACTIONS -->
-    <div style="position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9;display:${isDesktop()?'none':'block'}">
+    <div style="position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 60px);left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9;display:${isDesktop()?'none':'block'}">
       <div class="qa">
         <div class="qab" onclick="oM('expense')"><div class="qai" style="background:#FCEBEB"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><div class="qal">Expense</div></div>
         <div class="qab" onclick="oM('income')"><div class="qai" style="background:#EAF3DE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="qal">Income</div></div>
@@ -1745,33 +1763,18 @@ function bMore(){
           <span style="color:#ccc;font-size:18px">›</span>
         </div>`).join('')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="acctCollapsed=!acctCollapsed;render()">
-          <div>
-            <div style="font-size:11px;color:var(--sub);margin-bottom:2px">Signed in as</div>
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${currentUser?currentUser.email||currentUser.user_metadata?.full_name||'You':''}</div>
+      <div class="card" style="padding:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:50%;background:#1A1A2E;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">${currentUser?(currentUser.email||'?')[0].toUpperCase():'?'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentUser?currentUser.user_metadata?.full_name||currentUser.email?.split('@')[0]||'You':''}</div>
+            <div style="font-size:12px;color:#8E8E93;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentUser?currentUser.email||'':''}</div>
           </div>
-          <span style="color:#ccc;font-size:16px">${acctCollapsed?'▼':'▲'}</span>
+          <button onclick="pendingConfirm={type:'signout'};AM='deleteConfirm';render()" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:#FCEBEB;border:none;border-radius:10px;cursor:pointer;flex-shrink:0" title="Sign out">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C0192C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
-        ${!acctCollapsed?`
-        <div style="margin-top:12px;border-top:.5px solid rgba(0,0,0,.06);padding-top:12px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="display:flex;gap:8px;align-items:center">
-              <div id="sync-indicator" style="width:8px;height:8px;border-radius:50%;background:#4CAF82;flex-shrink:0"></div>
-              <span style="font-size:11px;color:var(--sub)" id="sync-label">${hasUnsyncedChanges()?'Unsynced changes':'Synced'}</span>
-            </div>
-          </div>
-          <button id="force-sync-btn" onclick="forceSyncToCloud()" style="width:100%;padding:10px;background:#1A1A2E;color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Sync to Cloud</button>
-          <button onclick="pendingConfirm={type:'signout'};AM='deleteConfirm';render()" style="width:100%;padding:10px;background:#FCEBEB;color:#C0192C;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer">Sign out</button>
-        </div>`:''}
       </div>
-      ${hasUnsyncedChanges()?`<div style="background:#FFF8E6;border:.5px solid #EF9F27;border-radius:12px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:16px">⚠️</span>
-          <span style="font-size:12px;font-weight:600;color:#856404">Unsynced changes</span>
-        </div>
-        <button onclick="forceSyncToCloud();render()" style="padding:6px 12px;background:#EF9F27;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Sync now</button>
-      </div>`:''}
     </div>
     ${nav()}
   </div>`;
