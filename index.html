@@ -14,10 +14,10 @@
 <style>
 :root{--blue:#003F8A;--blue2:#4CAF82;--green:#27500A;--red:#791F1F;--purple:#5B21B6;--orange:#633806;--bg:#F2F2F7;--white:#fff;--border:rgba(0,0,0,.07);--text:#2D2D2D;--sub:#999;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{height:100%;background:#fff}
-body{height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+html{background:#1a1a2e;--sat:env(safe-area-inset-top);--sab:env(safe-area-inset-bottom)}
+body{margin:0;background:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
 
-#app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;background:var(--bg);position:relative}
+#app{height:100vh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;background:var(--bg);position:relative}
 #sh{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .ab{padding:10px 18px 6px;background:var(--bg);display:flex;align-items:center;gap:10px;flex-shrink:0}
 .abt{font-size:18px;font-weight:500;flex:1;color:#1C1C1E;letter-spacing:-.4px;font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif}
@@ -90,9 +90,7 @@ body{height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'S
 [contenteditable].empty{position:relative}
 /* ── Desktop layout ── */
 
-/* iOS standalone PWA specific fixes */
-@media all and (display-mode: standalone) {
-  .ab{padding-top:calc(env(safe-area-inset-top,14px) + 8px)}
+/* PWA fixes handled by JS */
   #app{height:100svh;height:100dvh}
   .bn::after{content:'';display:block;height:env(safe-area-inset-bottom,0px);background:#fff;position:fixed;bottom:0;left:0;right:0;z-index:9}
 }
@@ -141,6 +139,7 @@ body{height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'S
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.0-sep15-1500</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -357,6 +356,7 @@ const isDesktop=()=>window.innerWidth>=768;
 
 function showApp(){
   document.getElementById('login-screen').style.display='none';
+  document.body.style.background='var(--bg)';
   const app=document.getElementById('app');
   app.style.display='flex';
   // Always start CC cards collapsed
@@ -425,6 +425,7 @@ function renderDesktopSidebar(){
 
 function showLogin(){
   document.getElementById('login-screen').style.display='flex';
+  document.body.style.background='#1a1a2e';
   document.getElementById('login-checking').style.display='none';
   document.getElementById('login-form').style.display='block';
   document.getElementById('app').style.display='none';
@@ -1089,7 +1090,7 @@ function bHomeDesktop(){
   return `<div style="min-height:100%;background:#F5F5F7">
     <div class="ab">
       <span class="abt">Dashboard</span>
-      <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
+      <span class="abi" onclick="showDebug()" style="font-size:11px;padding:2px 6px;background:rgba(0,0,0,.1);border-radius:4px">DBG</span><span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
     </div>
     <div style="padding:0 32px 32px;display:flex;flex-direction:column;gap:16px">
 
@@ -1314,7 +1315,7 @@ function bHome(){
     <div class="ab">
       <span class="abt">${isDesktop()?'Home':'FinTrack'}</span>
       <div style="display:flex;align-items:center;gap:10px">
-        <span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
+        <span class="abi" onclick="showDebug()" style="font-size:11px;padding:2px 6px;background:rgba(0,0,0,.1);border-radius:4px">DBG</span><span class="abi" onclick="balHidden=!balHidden;localStorage.setItem('ft-balhidden',balHidden?'1':'0');render()">${balHidden?SVGMAP.eyeoff:SVGMAP.eye}</span>
         ${!isDesktop()?`<span id="mobile-sync-btn" onclick="mobileSyncTap()" style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${hasUnsyncedChanges()?'#FFF3CD':'#EAF3DE'};transition:all .3s" title="${hasUnsyncedChanges()?'Tap to sync':'Synced'}">
           <svg id="mobile-sync-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${hasUnsyncedChanges()?'#EF9F27':'#4CAF82'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             ${hasUnsyncedChanges()
@@ -1393,7 +1394,7 @@ function bHome(){
     </div>
 
     <!-- QUICK ACTIONS -->
-    <div style="position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9;display:${isDesktop()?'none':'block'}">
+    <div style="position:fixed;bottom:72px;left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9;display:${isDesktop()?'none':'block'}" class="quick-actions-bar">
       <div class="qa">
         <div class="qab" onclick="oM('expense')"><div class="qai" style="background:#FCEBEB"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><div class="qal">Expense</div></div>
         <div class="qab" onclick="oM('income')"><div class="qai" style="background:#EAF3DE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="qal">Income</div></div>
@@ -2995,6 +2996,78 @@ function noteKeyDown(e,i){
     range.deleteContents();const br=document.createElement('br');const zws=document.createTextNode('\u200B');range.insertNode(zws);range.insertNode(br);range.setStartAfter(zws);range.collapse(true);sel.removeAllRanges();sel.addRange(range);
   }
   if(el){DB.notes[i].body=el.innerHTML;sv();}
+}
+
+
+// Debug overlay - shows live layout metrics
+function showDebug(){
+  let el=document.getElementById('debug-overlay');
+  if(!el){el=document.createElement('div');el.id='debug-overlay';
+    el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#0f0;font-family:monospace;font-size:11px;padding:12px;border-radius:8px;z-index:99999;line-height:1.8;min-width:260px;text-align:left';
+    el.onclick=()=>el.remove();
+    document.body.appendChild(el);
+  }
+  const app=document.getElementById('app');
+  const sh=document.getElementById('sh');
+  const bn=document.querySelector('.bn');
+  const ab=document.querySelector('.ab');
+  el.innerHTML=`<b style="color:#ff0">${VERSION}</b><br>
+window.innerH: ${window.innerHeight}px<br>
+screen.height: ${screen.height}px<br>
+screen.availH: ${screen.availHeight}px<br>
+visualViewport.h: ${window.visualViewport?.height?.toFixed(0)||'n/a'}px<br>
+app.offsetH: ${app?.offsetHeight||'?'}px<br>
+sh.offsetH: ${sh?.offsetHeight||'?'}px<br>
+bn.top: ${bn?.getBoundingClientRect().top?.toFixed(0)||'?'}px<br>
+bn.bottom: ${bn?.getBoundingClientRect().bottom?.toFixed(0)||'?'}px<br>
+ab.top: ${ab?.getBoundingClientRect().top?.toFixed(0)||'?'}px<br>
+safeTop: ${getComputedStyle(document.documentElement).getPropertyValue('--sat')||'n/a'}<br>
+safeBot: ${getComputedStyle(document.documentElement).getPropertyValue('--sab')||'n/a'}<br>
+standalone: ${navigator.standalone||false}<br>
+<span style="color:#888;font-size:10px">tap to close</span>`;
+}
+
+
+// ── iOS PWA layout fixer ──────────────────────────────────────────────────────
+function fixIOSLayout(){
+  // Use visualViewport which gives the TRUE visible area on all iOS versions
+  const vvp = window.visualViewport;
+  const h = vvp ? vvp.height : window.innerHeight;
+  const w = vvp ? vvp.width : window.innerWidth;
+  
+  // Set #app to exact visible height
+  const app = document.getElementById('app');
+  if(app){
+    app.style.height = h + 'px';
+    app.style.width = Math.min(w, 430) + 'px';
+  }
+  
+  // Read actual safe area values
+  const sab = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0;
+  const sat = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+  
+  // Fix header padding for Dynamic Island / notch
+  const headers = document.querySelectorAll('.ab');
+  headers.forEach(ab => {
+    ab.style.paddingTop = (sat > 20 ? sat + 4 : 14) + 'px';
+  });
+  
+  // Fix nav and quick actions
+  const bn = document.querySelector('.bn');
+  if(bn) bn.style.paddingBottom = Math.max(sab, 4) + 'px';
+  
+  const qa = document.querySelector('.quick-actions-bar');
+  if(qa){
+    const bnH = bn ? bn.offsetHeight : 60;
+    qa.style.bottom = bnH + 'px';
+  }
+}
+
+// Run on load and on every resize/scroll (handles iOS keyboard, rotation)
+window.addEventListener('load', ()=>setTimeout(fixIOSLayout, 100));
+window.addEventListener('resize', fixIOSLayout);
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', fixIOSLayout);
 }
 
 initAuth();
