@@ -17,9 +17,9 @@
 html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
 #app{height:100%;display:flex;flex-direction:column;max-width:430px;margin:0 auto;background:var(--bg);position:relative}
 #sh{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.ab{padding:12px 18px 9px;background:#1a1a2e;color:#fff;display:flex;align-items:center;gap:10px;flex-shrink:0}
-.abt{font-size:17px;font-weight:600;flex:1;color:#fff}
-.abi{font-size:22px;color:rgba(255,255,255,0.85);cursor:pointer;padding:2px 4px;position:relative}
+.ab{padding:12px 18px 9px;background:var(--bg);color:var(--text);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.abt{font-size:17px;font-weight:600;flex:1;color:var(--text)}
+.abi{font-size:22px;color:#555;cursor:pointer;padding:2px 4px;position:relative}
 .badge-red{position:absolute;top:-4px;right:-4px;background:#E24B4A;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center}
 .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .ct{flex:1;min-height:0;padding:12px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:160px}
@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.8-sep15-2100</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.9-sep15-2130</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -771,7 +771,7 @@ function nav(){
   const root=document.getElementById('bottom-nav-root');
   if(root && !isDesktop()){
     root.style.display='block';
-    const quickActions=CS==='home'?`<div style="position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 64px);left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9">
+    const quickActions=CS==='home'?`<div style="position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 60px);left:0;right:0;max-width:430px;margin:0 auto;background:#fff;border-top:.5px solid rgba(0,0,0,.08);padding:10px 14px;z-index:9">
       <div class="qa">
         <div class="qab" onclick="oM('expense')"><div class="qai" style="background:#FCEBEB"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><div class="qal">Expense</div></div>
         <div class="qab" onclick="oM('income')"><div class="qai" style="background:#EAF3DE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="qal">Income</div></div>
@@ -1219,16 +1219,26 @@ function bHome(){
     const initial=w.name.trim()[0]?.toUpperCase()||'W';
     let txMini='';
     if(isO&&wt.length){
-      txMini='<div style="background:#fafafa;border-radius:0 0 16px 16px;padding:8px 12px;border:.5px solid #e8e8e8;border-top:none">';
+      txMini='<div style="background:#fafafa;border-radius:0 0 16px 16px;padding:4px 12px 8px;border:.5px solid #e8e8e8;border-top:none">';
       wt.forEach(t=>{
-        txMini+='<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:.5px solid #f5f5f5">'
-          +'<span style="color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%">'+esc(t.name)+'</span>'
-          +'<span style="font-weight:700;'+(t.type==='expense'?'color:#E05C7A':'color:#4CAF82')+'">'+(t.type==='expense'?'−':'+')+f$(t.amount)+'</span></div>';
+        const isExp=t.type==='expense';
+        txMini+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f5f5f5">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+            <div style="font-size:10px;color:#bbb;margin-top:1px">${esc(t.date)}</div>
+          </div>
+          <div style="font-size:12px;font-weight:700;flex-shrink:0;${isExp?'color:#E05C7A':'color:#4CAF82'}">${isExp?'−':'+'}${f$(t.amount)}</div>
+        </div>`;
       });
       txMini+='</div>';
     }
-    return `<div style="margin-bottom:9px">
-      <div style="background:#fff;border:.5px solid #e8e8e8;border-radius:${isO?'18px 18px 0 0':'18px'};padding:12px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.04)" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
+    return `<div style="position:relative;margin-bottom:9px;border-radius:${isO?'18px 18px 0 0':'18px'};overflow:${isO?'visible':'hidden'}">
+      ${!isO?'<div style="position:absolute;inset:0;background:#FCEBEB;border-radius:18px;z-index:0"></div>':''}
+      <div class="swipe-item" id="walw-${w.id}" style="position:relative;z-index:1;transition:transform .15s;background:#fff;border:.5px solid #e8e8e8;border-radius:${isO?'18px 18px 0 0':'18px'};padding:12px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.04)"
+        ontouchstart="swipeStart(event,'walw-${w.id}')"
+        ontouchmove="swipeMove(event,'walw-${w.id}')"
+        ontouchend="swipeEnd(event,'walw-${w.id}','deleteWallet','${w.id}')"
+        onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
         <div style="width:38px;height:38px;border-radius:13px;background:${cl[0]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0">${initial}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:#2D2D2D">${esc(w.name)}</div>
@@ -1239,10 +1249,7 @@ function bHome(){
           ${lentOut>0&&!balHidden?`<div style="font-size:10px;color:#ccc">Actual ${f$(w.actualBalance)}</div>`:''}
         </div>
       </div>
-      ${isO?`<div style="background:#fafafa;border-radius:0 0 16px 16px;padding:8px 12px;border:.5px solid #e8e8e8;border-top:none">
-        ${txMini?txMini.replace('<div style="background:#fafafa;border-radius:0 0 16px 16px;padding:8px 12px;border:.5px solid #e8e8e8;border-top:none">','').replace('</div>',''):''}
-        <button onclick="event.stopPropagation();pendingConfirm={type:'wallet',id:'${w.id}',name:'${esc(w.name)}'};AM='deleteConfirm';render()" style="margin-top:6px;width:100%;padding:7px;background:#FCEBEB;color:#C0192C;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer">Delete wallet</button>
-      </div>`:txMini}
+      ${txMini}
     </div>`;
   }).join('');
 
@@ -1420,7 +1427,7 @@ function bHome(){
         ${ccSection}
       </div>`:`<div style="background:#fff;border-radius:18px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:12px;color:var(--sub)">No credit cards</div>
-        <button onclick="oM('creditCard')" style="padding:5px 11px;background:#FCEBEB;color:#C0192C;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">+ Add card</button>
+        <button onclick="oM('creditCard')" style="padding:5px 11px;background:#fff;color:#aaa;border:.5px solid #e8e8e8;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">+ Add card</button>
       </div>`}
 
       <!-- RECENT TRANSACTIONS -->
@@ -2651,7 +2658,7 @@ function svWal(){
   const n=vv('mwn'),bk=vv('mbk'),t=vv('mwt'),ac=vv('mac'),b=parseFloat(vv('mwb'))||0;
   if(!n)return alert('Please enter a wallet name');
   DB.wallets.push({id:uid(),name:n,bank:bk,type:t,acct:ac,currentBalance:b,actualBalance:b,qrImg:null});
-  sv();cM();goTo('wallets');
+  sv();cM();goTo('home');
 }
 function svFund(){
   const n=vv('mfn'),b=parseFloat(vv('mfb'))||0,wid=vv('mfwlink'),goal=parseFloat(vv('mfgoal'))||0;
@@ -3027,7 +3034,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v2.8-sep15-2100';
+  const VERSION='v2.9-sep15-2130';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
