@@ -144,7 +144,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.5-sep15-2000-DEBUG</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.6-sep15-2010-DEBUG</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -3021,6 +3021,7 @@ function noteKeyDown(e,i){
 
 // Debug overlay - shows live layout metrics
 function showDebug(){
+  try{
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
@@ -3028,34 +3029,36 @@ function showDebug(){
     document.body.appendChild(el);
   }
   const app=document.getElementById('app');
-  const sh=document.getElementById('sh');
   const bn=document.querySelector('.bn');
-  const ab=document.querySelector('.ab');
   const navRoot=document.getElementById('bottom-nav-root');
+  const fmt=n=>n===undefined||n===null||isNaN(n)?'?':Math.round(n);
   const bodyRect=document.body.getBoundingClientRect();
   const appRect=app?app.getBoundingClientRect():null;
   const navRootRect=navRoot?navRoot.getBoundingClientRect():null;
   const bnRect=bn?bn.getBoundingClientRect():null;
   el.innerHTML=`<b style="color:#ff0">${VERSION}</b><br>
-window.innerH: ${window.innerHeight}px<br>
-visualViewport.h: ${window.visualViewport?.height?.toFixed(0)||'n/a'}px<br>
-visualViewport.offsetTop: ${window.visualViewport?.offsetTop?.toFixed(0)||'n/a'}px<br>
-body.rect: top=${bodyRect.top.toFixed(0)} bottom=${bodyRect.bottom.toFixed(0)} h=${bodyRect.height.toFixed(0)}<br>
+window.innerH: ${fmt(window.innerHeight)}px<br>
+visualViewport.h: ${fmt(window.visualViewport&&window.visualViewport.height)}px<br>
+visualViewport.offsetTop: ${fmt(window.visualViewport&&window.visualViewport.offsetTop)}px<br>
+body.rect: top=${fmt(bodyRect&&bodyRect.top)} bottom=${fmt(bodyRect&&bodyRect.bottom)} h=${fmt(bodyRect&&bodyRect.height)}<br>
 body computedH: ${getComputedStyle(document.body).height}<br>
-app.rect: top=${appRect?.top.toFixed(0)} bottom=${appRect?.bottom.toFixed(0)} h=${appRect?.height.toFixed(0)}<br>
+app.rect: top=${fmt(appRect&&appRect.top)} bottom=${fmt(appRect&&appRect.bottom)} h=${fmt(appRect&&appRect.height)}<br>
 app computedH: ${app?getComputedStyle(app).height:'?'}<br>
 navRoot exists: ${!!navRoot}<br>
-navRoot.rect: top=${navRootRect?.top.toFixed(0)} bottom=${navRootRect?.bottom.toFixed(0)}<br>
+navRoot.rect: top=${fmt(navRootRect&&navRootRect.top)} bottom=${fmt(navRootRect&&navRootRect.bottom)}<br>
 navRoot display: ${navRoot?getComputedStyle(navRoot).display:'?'}<br>
 bn exists: ${!!bn}<br>
-bn.rect: top=${bnRect?.top.toFixed(0)} bottom=${bnRect?.bottom.toFixed(0)}<br>
+bn.rect: top=${fmt(bnRect&&bnRect.top)} bottom=${fmt(bnRect&&bnRect.bottom)}<br>
 bn computed bottom: ${bn?getComputedStyle(bn).bottom:'?'}<br>
 bn computed position: ${bn?getComputedStyle(bn).position:'?'}<br>
-bn parent: ${bn?bn.parentElement.id||bn.parentElement.className:'?'}<br>
+bn parent: ${bn?(bn.parentElement.id||bn.parentElement.className):'?'}<br>
 safeBot var: ${getComputedStyle(document.documentElement).getPropertyValue('--sab')}<br>
-safeBot env: calc test below<br>
 standalone: ${navigator.standalone||false}<br>
 <span style="color:#888;font-size:9px">tap to close</span>`;
+  }catch(err){
+    let el=document.getElementById('debug-overlay');
+    if(el)el.innerHTML='<b style="color:#f00">DEBUG ERROR:</b><br>'+err.message+'<br><br>'+err.stack;
+  }
 }
 
 
