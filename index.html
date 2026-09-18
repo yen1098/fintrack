@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v2.9-sep15-2130</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.0-sep16-1000</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -2113,7 +2113,7 @@ function bModal(name){
   switch(name){
     case 'expense': return W('Add Expense',`
       <div class="field"><label>Item / description *</label><input id="mn" type="text" placeholder="e.g. SM Supermarket" autocomplete="off"></div>
-      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0" oninput="updateSplitCalc()"></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" placeholder="0"></div>
       <div class="field"><label>Category</label><select id="mc"><option>Food</option><option>Utilities</option><option>Transport</option><option>Shopping</option><option>Bills</option><option>Entertainment</option><option>Other</option></select></div>
       <div style="background:#f8f8f8;border-radius:12px;padding:12px;margin-bottom:11px">
         <div style="font-size:11px;color:#bbb;font-weight:700;letter-spacing:.3px;margin-bottom:10px">SOURCE — fill any one</div>
@@ -2122,21 +2122,6 @@ function bModal(name){
         <div class="field" style="margin-bottom:0"><label>Charge to credit card</label><select id="mcc"><option value="">— none —</option>${DB.creditCards.map(cc=>`<option value="${cc.id}">${esc(cc.name)}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
-      <div style="border:.5px solid rgba(0,0,0,.1);border-radius:12px;padding:12px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSplitSection()">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
-            <span style="font-size:13px;font-weight:600;color:var(--text)">Split bill</span>
-          </div>
-          <span class="split-chevron" style="color:#ccc;font-size:13px">▼</span>
-        </div>
-        <div id="split-section" style="display:none;margin-top:12px">
-          <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Add the people splitting this bill with you. The amount is divided equally.</div>
-          <div id="split-people"></div>
-          <button type="button" onclick="addSplitPerson()" style="width:100%;padding:8px;background:#f0f0f0;color:#555;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:10px">＋ Add person</button>
-          <div id="split-calc" style="background:#EAF3DE;border-radius:9px;padding:10px;font-size:12px;color:#27500A;font-weight:600;text-align:center;display:none"></div>
-        </div>
-      </div>
       <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'income': return W('Add Income',`
@@ -2537,46 +2522,6 @@ function bModal(name){
 
 function pF(inp,prev){const f=document.getElementById(inp).files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};r.readAsDataURL(f);}
 
-function addSplitPerson(){
-  const c=document.getElementById('split-people');
-  if(!c)return;
-  const i=Date.now();
-  const d=document.createElement('div');
-  d.id='sp-'+i;
-  d.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
-  d.innerHTML='<input type="text" placeholder="Name (e.g. Ate)" style="flex:1;font-size:13px;padding:8px 10px;border:.5px solid rgba(0,0,0,.2);border-radius:9px;background:#f8f8f8" class="split-name" oninput="updateSplitCalc()">'
-    +'<button type="button" onclick="this.parentElement.remove();updateSplitCalc()" style="width:28px;height:28px;background:#FCEBEB;color:#C0192C;border:none;border-radius:7px;font-size:16px;cursor:pointer;flex-shrink:0">\u00D7</button>';
-  c.appendChild(d);
-  d.querySelector('input').focus();
-  updateSplitCalc();
-}
-
-function updateSplitCalc(){
-  const amtEl=document.getElementById('ma');
-  const calcEl=document.getElementById('split-calc');
-  if(!amtEl||!calcEl)return;
-  const amt=parseFloat(amtEl.value)||0;
-  const names=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
-  const count=document.querySelectorAll('.split-name').length;
-  const total=count+1;
-  if(amt>0&&count>0){
-    const each=(amt/total).toFixed(2);
-    calcEl.style.display='block';
-    calcEl.textContent='₱'+amt.toLocaleString()+' ÷ '+total+' people = ₱'+parseFloat(each).toLocaleString()+' each'+(names.length>0?' · '+names.join(', ')+' will owe ₱'+parseFloat(each).toLocaleString()+' each':'');
-  } else {
-    calcEl.style.display='none';
-  }
-}
-
-function toggleSplitSection(){
-  const sec=document.getElementById('split-section');
-  const chev=document.querySelector('.split-chevron');
-  if(!sec)return;
-  const open=sec.style.display==='none'||sec.style.display==='';
-  sec.style.display=open?'block':'none';
-  if(chev)chev.textContent=open?'▲':'▼';
-}
-
 function svExp(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),ccId=vv('mcc'),no=vv('mno');
   if(!n||!a)return alert('Please fill in name and amount');
@@ -2598,43 +2543,29 @@ function svExp(){
   const wd=w?gW(w):null;
   if(w&&!wd)return alert('Wallet not found');
 
-  const splitNames=[...document.querySelectorAll('.split-name')].map(x=>x.value.trim()).filter(Boolean);
-  const isSplit=splitNames.length>0;
-  const totalPeople=isSplit?splitNames.length+1:1;
-  const myShare=isSplit?Math.round((a/totalPeople)*100)/100:a;
-  const theirShare=isSplit?Math.round((a/totalPeople)*100)/100:0;
-
   if(wd){wd.currentBalance-=a;wd.actualBalance-=a;}
 
   if(fi){
     const fd=DB.funds.find(x=>x.id===fi);
     if(fd){
       if(fd.total===undefined){fd.total=fd.budget||0;fd.spent=fd.used||0;}
-      fd.spent+=myShare;
+      fd.spent+=a;
       if(!fd.uses)fd.uses=[];
-      fd.uses.unshift({amt:myShare,desc:n+(isSplit?' (my share)':''),date:td(),rawDate:new Date().toISOString()});
+      fd.uses.unshift({amt:a,desc:n,date:td(),rawDate:new Date().toISOString()});
       // If no wallet selected directly, deduct from fund's linked wallet
       if(!wd&&fd.linkedWalletId){
         const lw=gW(fd.linkedWalletId);
-        if(lw){lw.currentBalance-=myShare;lw.actualBalance-=myShare;}
+        if(lw){lw.currentBalance-=a;lw.actualBalance-=a;}
       }
     }
   }
 
-  // Log transaction — use linked wallet if no direct wallet
+  // Log transaction
   const fd2=fi?DB.funds.find(x=>x.id===fi):null;
   const linkedW=fd2&&!wd&&fd2.linkedWalletId?gW(fd2.linkedWalletId):null;
   const txWalletId=w||(linkedW?linkedW.id:'');
   const txWalletName=wd?wd.name:linkedW?linkedW.name:(fd2?fd2.name:'');
-  addTx({type:'expense',name:n+(isSplit?' (my share)':''),amount:myShare,cat:fi?'Fund':c,walletId:txWalletId,walletName:txWalletName,note:no+(isSplit?' · Split '+totalPeople+' ways':'')+(fi?' · via fund: '+(fd2?fd2.name:''):''),_unlinkToSpend:fi?true:undefined});
-
-  if(isSplit){
-    splitNames.forEach(personName=>{
-      if(wd)addTx({type:'expense',name:'Lent for split: '+n+' ('+personName+')',amount:theirShare,cat:'Other',walletId:null,walletName:wd.name,note:'Lent — split bill'});
-      DB.borrowings.push({id:uid(),name:personName,total:theirShare,paid:0,dir:'lent',walletId:w||'',walletName:wd?wd.name:'',due:'',payments:[],note:'Split bill: '+n});
-    });
-    showToast('Expense split '+totalPeople+' ways ✓');
-  }
+  addTx({type:'expense',name:n,amount:a,cat:fi?'Fund':c,walletId:txWalletId,walletName:txWalletName,note:no+(fi?' · via fund: '+(fd2?fd2.name:''):''),_unlinkToSpend:fi?true:undefined});
 
   sv();cM();goTo('home');
 }
@@ -3034,7 +2965,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v2.9-sep15-2130';
+  const VERSION='v3.0-sep16-1000';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
