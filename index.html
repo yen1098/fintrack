@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.1-sep16-1100-split1</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.2-sep16-1300-split2</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1452,13 +1452,37 @@ function dullColor(hex){
 }
 
 let splitTrayOpen=true;
+let splitSettledOpen=false;
 
 function bWallets(){
   const rows=DB.splitRows||[];
+  const tables=(DB.splitTables||[]).filter(t=>!t.settled);
+  const settledTables=(DB.splitTables||[]).filter(t=>t.settled);
+
   return `<div class="screen">
-    <div class="ab"><span class="abt">Split Ledger</span></div>
-    <div class="ct">
-      <div class="card" style="padding:0;overflow:hidden">
+    <div class="ab">
+      <span class="abt">Split Ledger</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${settledTables.length?`<span class="abi" onclick="splitSettledOpen=!splitSettledOpen;render()" style="font-size:11px;padding:4px 10px;background:${splitSettledOpen?'#3B6D11':'#f0f0f0'};color:${splitSettledOpen?'#fff':'#666'};border-radius:99px;font-weight:600">Settled (${settledTables.length})</span>`:''}
+        <span class="abi" onclick="createSplitTable()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      </div>
+    </div>
+    <div class="ct" id="split-ledger-ct">
+
+      ${splitSettledOpen?`<div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
+          <span style="font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.5px">SETTLED TABLES</span>
+        </div>
+        ${settledTables.map(t=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:.5px solid rgba(0,0,0,.04)">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(t.name)}</div>
+            <div style="font-size:11px;color:var(--sub)">${t.rows.length} item${t.rows.length!==1?'s':''} · ${f$(t.rows.reduce((s,r)=>s+r.total,0))}</div>
+          </div>
+          <span style="font-size:11px;background:#EAF3DE;color:#27500A;padding:2px 9px;border-radius:99px;font-weight:600">✓ Settled</span>
+        </div>`).join('')}
+      </div>`:''}
+
+      <div class="card" style="padding:0;overflow:hidden" id="split-tray-card">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 15px;cursor:pointer" onclick="splitTrayOpen=!splitTrayOpen;render()">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
@@ -1467,8 +1491,13 @@ function bWallets(){
           </div>
           <span style="color:#ccc;font-size:14px">${splitTrayOpen?'▲':'▼'}</span>
         </div>
-        ${splitTrayOpen?`<div style="border-top:.5px solid rgba(0,0,0,.06)">
-          ${rows.length?rows.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:.5px solid rgba(0,0,0,.05)">
+        ${splitTrayOpen?`<div style="border-top:.5px solid rgba(0,0,0,.06)" id="split-tray-rows">
+          ${rows.length?rows.map(r=>`<div class="split-drag-row" id="sdr-${r.id}" data-row-id="${r.id}"
+              style="display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:.5px solid rgba(0,0,0,.05);touch-action:none;user-select:none"
+              ontouchstart="splitDragStart(event,'${r.id}')"
+              ontouchmove="splitDragMove(event)"
+              ontouchend="splitDragEnd(event)">
+            <div style="width:18px;color:#ddd;flex-shrink:0;font-size:14px">⠿</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.item)}</div>
               <div style="font-size:11px;color:var(--sub);margin-top:1px">${esc(r.date)} · Paid by ${esc(r.payer)}</div>
@@ -1477,15 +1506,90 @@ function bWallets(){
           </div>`).join(''):`<div style="padding:24px 15px;text-align:center;font-size:12px;color:var(--sub)">No unassigned split bills.<br>Toggle "Split bill" when adding an expense to add one here.</div>`}
         </div>`:''}
       </div>
-      <div class="card" style="text-align:center;padding:28px 16px">
+
+      ${tables.length?tables.map(t=>bSplitTable(t)).join(''):`<div class="card" style="text-align:center;padding:28px 16px">
         <div style="font-size:40px;margin-bottom:10px">📊</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Tables coming next</div>
-        <div style="font-size:12px;color:var(--sub);line-height:1.6;max-width:260px;margin:0 auto">Create a table, then drag rows from the tray above into it to split the bill among people.</div>
-      </div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">No tables yet</div>
+        <div style="font-size:12px;color:var(--sub);line-height:1.6;max-width:260px;margin:0 auto">Tap the + button above to create a table, then hold and drag rows from the tray into it.</div>
+      </div>`}
     </div>
     ${nav()}
   </div>`;
 }
+
+function bSplitTable(t){
+  const totalAmt=t.rows.reduce((s,r)=>s+r.total,0);
+  const lessTotal=Object.values(t.lessPayments||{}).reduce((s,v)=>s+v,0);
+  const remaining=Math.max(0,totalAmt-lessTotal);
+  return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;border:1.5px dashed transparent">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
+      <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
+      <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${380+t.persons.length*80}px">
+        <thead>
+          <tr style="background:#fafafa">
+            <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Date</th>
+            <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Item</th>
+            <th style="text-align:right;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Total</th>
+            ${t.persons.map((p,pi)=>`<th style="text-align:center;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">${esc(p.name)}</th>`).join('')}
+            <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${t.rows.map((r,ri)=>{
+            const onCount=t.persons.filter(p=>r.enabled&&r.enabled[p.name]).length||0;
+            const share=onCount>0?r.total/onCount:0;
+            return `<tr style="border-top:.5px solid #f0f0f0">
+              <td style="padding:7px 8px;color:#999;white-space:nowrap">${esc(r.date)}</td>
+              <td style="padding:7px 8px;color:var(--text);font-weight:500;white-space:nowrap">${esc(r.item)}</td>
+              <td style="padding:7px 8px;text-align:right;color:var(--text);font-weight:600;white-space:nowrap">${f$(r.total)}</td>
+              ${t.persons.map(p=>{
+                const on=!!(r.enabled&&r.enabled[p.name]);
+                return `<td style="padding:7px 4px;text-align:center">
+                  <div onclick="toggleSplitPersonRow('${t.id}',${ri},'${esc(p.name)}')" style="display:inline-flex;flex-direction:column;align-items:center;cursor:pointer">
+                    <div style="width:18px;height:18px;border-radius:5px;border:1.5px solid ${on?'#4CAF82':'#ddd'};background:${on?'#4CAF82':'transparent'};display:flex;align-items:center;justify-content:center">${on?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+                    ${on?`<span style="font-size:9px;color:#4CAF82;margin-top:2px;font-weight:600">${f$(share)}</span>`:''}
+                  </div>
+                </td>`;
+              }).join('')}
+              <td style="padding:7px 8px;color:#999;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">${esc(r.note||'')}</td>
+            </tr>`;
+          }).join('')}
+          ${!t.rows.length?`<tr><td colspan="${4+t.persons.length}" style="padding:16px;text-align:center;color:#ccc;font-size:12px">Drag rows here from the tray above</td></tr>`:''}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:1.5px solid #e0e0e0;background:#fafafa">
+            <td colspan="2" style="padding:8px;font-weight:700;color:var(--text)">Total</td>
+            <td style="padding:8px;text-align:right;font-weight:700;color:var(--text);white-space:nowrap">${f$(totalAmt)}</td>
+            <td colspan="${t.persons.length+1}"></td>
+          </tr>
+          ${t.persons.map(p=>{
+            const paid=(t.lessPayments&&t.lessPayments[p.name])||0;
+            return `<tr style="border-top:.5px solid #f5f5f5">
+              <td colspan="2" style="padding:6px 8px;color:#888;font-size:10px">Less: ${esc(p.name)} paid</td>
+              <td colspan="${t.persons.length+2}" style="padding:6px 8px">
+                <div onclick="openLessPaymentEntry('${t.id}','${esc(p.name)}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#f5f5f5;border-radius:7px;padding:3px 10px">
+                  <span style="font-size:11px;font-weight:600;color:${paid>0?'#3B6D11':'#bbb'}">${paid>0?f$(paid):'tap to enter'}</span>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+          <tr style="border-top:1.5px solid #e0e0e0">
+            <td colspan="2" style="padding:8px;font-weight:700;color:${remaining>0?'#E05C7A':'#3B6D11'}">Remaining transfer</td>
+            <td colspan="${t.persons.length+2}" style="padding:8px;text-align:right;font-weight:700;color:${remaining>0?'#E05C7A':'#3B6D11'}">${f$(remaining)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="padding:10px 15px;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px">
+      <button onclick="addSplitPersonColumn('${t.id}')" style="padding:6px 12px;background:#f0f0f0;color:#555;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">＋ Add person</button>
+      ${t.rows.length&&remaining<=0?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">✓ Mark settled</button>`:''}
+    </div>
+  </div>`;
+}
+
 
 function bFunds(){
   DB.funds.forEach(fd=>{
@@ -1759,6 +1863,21 @@ function askConfirm(type,gid,tid){pendingConfirm={type,gid,tid};AM='confirm';ren
 function bConfirmModal(){
   if(!pendingConfirm)return '';
   const {type,gid,tid}=pendingConfirm;
+  if(type==='settleTable'){
+    const st=DB.splitTables.find(x=>x.id===pendingConfirm.id);
+    return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+      <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+        <div class="confirm-box">
+          <h3>Mark as Settled?</h3>
+          <p>Move <b>${esc(st?st.name:'this table')}</b> to the Settled bucket?<br><br>You can still view it there, but it won't appear in your active tables.</p>
+          <div class="confirm-btns">
+            <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+            <button class="cb-ok" onclick="doSettleSplitTable('${pendingConfirm.id}')">Yes, settle</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
   if(type==='transferAll'){
     return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
       <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
@@ -2422,6 +2541,20 @@ function bModal(name){
             </div>
           </div>
         </div>`;}
+      if(pc.type==='splitTable'){
+        const st=DB.splitTables.find(x=>x.id===pc.id);
+        return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+            <div class="confirm-box">
+              <h3>Delete Table?</h3>
+              <p>Delete <b>${esc(st?st.name:'this table')}</b>?<br><br>Its rows will be returned to the Unassigned splits tray.</p>
+              <div class="confirm-btns">
+                <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+                <button class="cb-red" onclick="confirmDeleteSplitTable()">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>`;}
       const isF=pc.type==='fund',isG=pc.type==='group',isTmpl=pc.type==='template',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource',isCCCh=pc.type==='ccCharge',isClear=pc.type==='clearArchived';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
       const grp=(isG||isTmpl)?DB.transferGroups.find(x=>x.id===pc.id):null;
@@ -2914,6 +3047,135 @@ function confirmDeleteCCCharge(){
   pendingConfirm=null;AM=null;sv();showToast('Charge deleted');render();
 }
 
+// ── Split Ledger: tables ──────────────────────────────────────────────────────
+function createSplitTable(){
+  const n=prompt('Table name:','New split');
+  if(!n||!n.trim())return;
+  DB.splitTables.push({id:uid(),name:n.trim(),createdAt:new Date().toISOString(),settled:false,persons:[{name:'Me'}],rows:[],lessPayments:{}});
+  sv();render();
+}
+function renameSplitTable(id,name){
+  const t=DB.splitTables.find(x=>x.id===id);if(!t||!name.trim())return;
+  t.name=name.trim();sv();
+}
+function confirmDeleteSplitTable(){
+  const pc=pendingConfirm;
+  const t=DB.splitTables.find(x=>x.id===pc.id);
+  if(t){
+    // Return rows to the tray instead of losing them
+    t.rows.forEach(r=>{DB.splitRows.push({id:r.id,date:r.date,rawDate:r.rawDate,item:r.item,total:r.total,cat:r.cat,payer:r.payer,payerIsMe:r.payerIsMe,note:r.note,linkedTxId:r.linkedTxId,sourceWalletId:r.sourceWalletId});});
+    DB.splitTables=DB.splitTables.filter(x=>x.id!==pc.id);
+  }
+  pendingConfirm=null;AM=null;sv();showToast('Table deleted — rows returned to tray');render();
+}
+function addSplitPersonColumn(tableId){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const n=prompt('Person name:');
+  if(!n||!n.trim())return;
+  if(t.persons.some(p=>p.name===n.trim()))return alert('That person is already a column');
+  t.persons.push({name:n.trim()});
+  sv();render();
+}
+function toggleSplitPersonRow(tableId,rowIdx,personName){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const r=t.rows[rowIdx];if(!r)return;
+  if(!r.enabled)r.enabled={};
+  r.enabled[personName]=!r.enabled[personName];
+  sv();render();
+}
+function openLessPaymentEntry(tableId,personName){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const current=(t.lessPayments&&t.lessPayments[personName])||0;
+  const val=prompt(`How much has ${personName} paid so far?`,current>0?String(current):'');
+  if(val===null)return;
+  const amt=parseFloat(val);
+  if(isNaN(amt)||amt<0)return alert('Please enter a valid amount');
+  if(!t.lessPayments)t.lessPayments={};
+  t.lessPayments[personName]=amt;
+  sv();showToast('Payment recorded');render();
+}
+function settleSplitTable(tableId){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  pendingConfirm={type:'settleTable',id:tableId};AM='confirm';render();
+}
+function doSettleSplitTable(tableId){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  t.settled=true;
+  pendingConfirm=null;AM=null;sv();showToast('Table marked as settled ✓');render();
+}
+
+// ── Split Ledger: touch drag-drop (row from tray → table) ────────────────────
+let splitDrag=null;
+function splitDragStart(e,rowId){
+  const t=e.touches[0];
+  splitDrag={rowId,startX:t.clientX,startY:t.clientY,active:false,ghost:null,timer:null};
+  splitDrag.timer=setTimeout(()=>{
+    if(!splitDrag)return;
+    splitDrag.active=true;
+    const srcEl=document.getElementById('sdr-'+rowId);
+    if(srcEl){
+      const rect=srcEl.getBoundingClientRect();
+      const ghost=srcEl.cloneNode(true);
+      ghost.id='split-drag-ghost';
+      ghost.style.cssText=`position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;z-index:9999;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:12px;opacity:.95;pointer-events:none`;
+      document.body.appendChild(ghost);
+      splitDrag.ghost=ghost;
+      srcEl.style.opacity='.3';
+      if(navigator.vibrate)navigator.vibrate(10);
+    }
+  },350);
+}
+function splitDragMove(e){
+  if(!splitDrag)return;
+  const t=e.touches[0];
+  if(!splitDrag.active){
+    // Cancel long-press if user scrolls before hold completes
+    if(Math.abs(t.clientY-splitDrag.startY)>10){clearTimeout(splitDrag.timer);splitDrag=null;}
+    return;
+  }
+  e.preventDefault();
+  if(splitDrag.ghost){
+    const dx=t.clientX-splitDrag.startX;
+    const dy=t.clientY-splitDrag.startY;
+    splitDrag.ghost.style.transform=`translate(${dx}px,${dy}px)`;
+  }
+  // Highlight drop zone under finger
+  document.querySelectorAll('.split-table-dropzone').forEach(z=>z.style.borderColor='transparent');
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  const zone=el&&el.closest('.split-table-dropzone');
+  if(zone)zone.style.borderColor='#4CAF82';
+}
+function splitDragEnd(e){
+  if(!splitDrag)return;
+  clearTimeout(splitDrag.timer);
+  const srcEl=document.getElementById('sdr-'+splitDrag.rowId);
+  if(srcEl)srcEl.style.opacity='1';
+  document.querySelectorAll('.split-table-dropzone').forEach(z=>z.style.borderColor='transparent');
+  if(splitDrag.active){
+    const t=e.changedTouches[0];
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    const zone=el&&el.closest('.split-table-dropzone');
+    if(splitDrag.ghost)splitDrag.ghost.remove();
+    if(zone){
+      const tableId=zone.getAttribute('data-table-id');
+      assignSplitRowToTable(splitDrag.rowId,tableId);
+    }
+  }
+  splitDrag=null;
+}
+function assignSplitRowToTable(rowId,tableId){
+  const rIdx=DB.splitRows.findIndex(x=>x.id===rowId);
+  if(rIdx===-1)return;
+  const t=DB.splitTables.find(x=>x.id===tableId);
+  if(!t)return;
+  const row=DB.splitRows[rIdx];
+  // Ensure payer is a column if not already
+  if(!t.persons.some(p=>p.name===row.payer))t.persons.push({name:row.payer});
+  t.rows.push({...row,enabled:{Me:row.payerIsMe===true}});
+  DB.splitRows.splice(rIdx,1);
+  sv();showToast('Added to '+t.name);render();
+}
+
 let swipeState={};
 function swipeStart(e,wrapperId){const t=e.touches[0];swipeState[wrapperId]={startX:t.clientX,startY:t.clientY,moved:0,active:false,started:false};}
 function swipeMove(e,wrapperId){
@@ -3041,7 +3303,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.1-sep16-1100-split1';
+  const VERSION='v3.2-sep16-1300-split2';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
