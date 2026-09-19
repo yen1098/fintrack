@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.0-sep16-1000</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.1-sep16-1100-split1</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -251,7 +251,7 @@ const SVGMAP={
   qrcode:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/></svg>'
 };
 
-let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:'Monthly Income'}};
+let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],bonuses:[],transferGroups:[],creditCards:[],toSpend:{base:0,label:'Monthly Income'},splitRows:[],splitTables:[]};
 let CS='home', AM=null;
 let hwExp=false,hwDet=null,ewId=null,wMore={},resCollapsed={},tgHoldTimer=null;
 let fhExp={},fhFull={},tgExp={},lf='all';
@@ -684,6 +684,8 @@ function migrateDB(){
   if(!DB.bonuses)DB.bonuses=[];
   if(!DB.transferGroups)DB.transferGroups=[];
   if(!DB.notes)DB.notes=[];
+  if(!DB.splitRows)DB.splitRows=[];
+  if(!DB.splitTables)DB.splitTables=[];
   // Wrap render in try-catch so a single bad screen doesn't blank the whole app
 }
 
@@ -1449,14 +1451,36 @@ function dullColor(hex){
   }catch(e){return hex;}
 }
 
+let splitTrayOpen=true;
+
 function bWallets(){
+  const rows=DB.splitRows||[];
   return `<div class="screen">
     <div class="ab"><span class="abt">Split Ledger</span></div>
-    <div class="ct" style="align-items:center;justify-content:center;min-height:60vh;overflow-y:auto;min-height:0;flex:1">
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:48px;margin-bottom:16px">📊</div>
-        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Split Ledger</div>
-        <div style="font-size:13px;color:var(--sub);line-height:1.6;max-width:280px;margin:0 auto">Track shared expenses with others — coming soon.</div>
+    <div class="ct">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 15px;cursor:pointer" onclick="splitTrayOpen=!splitTrayOpen;render()">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
+            <span style="font-size:14px;font-weight:700;color:var(--text)">Unassigned splits</span>
+            ${rows.length?`<span style="font-size:11px;background:#EAF3DE;color:#27500A;padding:1px 8px;border-radius:99px;font-weight:600">${rows.length}</span>`:''}
+          </div>
+          <span style="color:#ccc;font-size:14px">${splitTrayOpen?'▲':'▼'}</span>
+        </div>
+        ${splitTrayOpen?`<div style="border-top:.5px solid rgba(0,0,0,.06)">
+          ${rows.length?rows.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:.5px solid rgba(0,0,0,.05)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.item)}</div>
+              <div style="font-size:11px;color:var(--sub);margin-top:1px">${esc(r.date)} · Paid by ${esc(r.payer)}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);flex-shrink:0">${f$(r.total)}</div>
+          </div>`).join(''):`<div style="padding:24px 15px;text-align:center;font-size:12px;color:var(--sub)">No unassigned split bills.<br>Toggle "Split bill" when adding an expense to add one here.</div>`}
+        </div>`:''}
+      </div>
+      <div class="card" style="text-align:center;padding:28px 16px">
+        <div style="font-size:40px;margin-bottom:10px">📊</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Tables coming next</div>
+        <div style="font-size:12px;color:var(--sub);line-height:1.6;max-width:260px;margin:0 auto">Create a table, then drag rows from the tray above into it to split the bill among people.</div>
       </div>
     </div>
     ${nav()}
@@ -2122,6 +2146,25 @@ function bModal(name){
         <div class="field" style="margin-bottom:0"><label>Charge to credit card</label><select id="mcc"><option value="">— none —</option>${DB.creditCards.map(cc=>`<option value="${cc.id}">${esc(cc.name)}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>Notes</label><textarea id="mno" placeholder="Optional note..."></textarea></div>
+      <div style="border:.5px solid rgba(0,0,0,.1);border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSplitBillSection()">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
+            <span style="font-size:13px;font-weight:600;color:var(--text)">Split bill</span>
+          </div>
+          <span id="split-bill-chevron" style="color:#ccc;font-size:13px">▼</span>
+        </div>
+        <div id="split-bill-section" style="display:none;margin-top:12px">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:10px">This will be added to the Split Ledger tray instead of a normal expense. Your share still counts in To Spend.</div>
+          <div class="field"><label>Who paid?</label>
+            <select id="sbPayer" onchange="document.getElementById('sbPayerNameWrap').style.display=this.value==='other'?'block':'none'">
+              <option value="me">Me</option>
+              <option value="other">Someone else</option>
+            </select>
+          </div>
+          <div id="sbPayerNameWrap" style="display:none" class="field"><label>Their name</label><input id="sbPayerName" type="text" placeholder="e.g. Ate"></div>
+        </div>
+      </div>
       <button class="btnp" onclick="svExp()">Save expense</button><button class="btns" onclick="cM()">Cancel</button>`);
 
     case 'income': return W('Add Income',`
@@ -2522,9 +2565,42 @@ function bModal(name){
 
 function pF(inp,prev){const f=document.getElementById(inp).files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=document.getElementById(prev);if(i){i.src=e.target.result;i.style.display='block';}};r.readAsDataURL(f);}
 
+function toggleSplitBillSection(){
+  const sec=document.getElementById('split-bill-section');
+  const chev=document.getElementById('split-bill-chevron');
+  if(!sec)return;
+  const open=sec.style.display==='none'||sec.style.display==='';
+  sec.style.display=open?'block':'none';
+  if(chev)chev.textContent=open?'▲':'▼';
+}
+
 function svExp(){
   const n=vv('mn'),a=parseFloat(vv('ma')),c=vv('mc'),w=vv('mw'),fi=vv('mf'),ccId=vv('mcc'),no=vv('mno');
   if(!n||!a)return alert('Please fill in name and amount');
+
+  const splitSec=document.getElementById('split-bill-section');
+  const isSplitBill=splitSec&&splitSec.style.display==='block';
+
+  if(isSplitBill){
+    const payer=vv('sbPayer')||'me';
+    const payerName=payer==='other'?(vv('sbPayerName')||'Someone'):'Me';
+    let txId=null;
+    if(payer==='me'){
+      if(!w)return alert('Please select a wallet to pay from');
+      const wd=gW(w);if(!wd)return alert('Wallet not found');
+      wd.currentBalance-=a;wd.actualBalance-=a;
+      txId=uid();
+      addTx({id:txId,type:'expense',name:n,amount:a,cat:c,walletId:w,walletName:wd.name,note:no,_unlinkToSpend:true});
+    }
+    DB.splitRows.push({
+      id:uid(),date:td(),rawDate:new Date().toISOString(),item:n,total:a,cat:c,
+      payer:payerName,payerIsMe:payer==='me',note:no,linkedTxId:txId,
+      sourceWalletId:payer==='me'?w:null
+    });
+    sv();cM();goTo('home');showToast('Added to Split Ledger tray');
+    return;
+  }
+
   if(!w&&!fi&&!ccId)return alert('Please select a wallet, fund, or credit card as the source');
 
   // CC charge path — doesn't touch wallet or To Spend
@@ -2965,7 +3041,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.0-sep16-1000';
+  const VERSION='v3.1-sep16-1100-split1';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
