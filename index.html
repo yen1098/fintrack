@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.2-sep16-1300-split2</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.3-sep16-1430-split2b</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -737,6 +737,15 @@ function render(){
   const ctNew=document.querySelector('.ct');
   if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
   if(shEl&&shScrollY&&isDesktop())shEl.scrollTop=shScrollY;
+  // Restore split table horizontal scroll positions (lost on innerHTML rebuild)
+  if(window._splitScrollX){
+    Object.keys(window._splitScrollX).forEach(tid=>{
+      const main=document.getElementById('scroll-'+tid);
+      const less=document.getElementById('scroll-less-'+tid);
+      if(main)main.scrollLeft=window._splitScrollX[tid];
+      if(less)less.scrollLeft=window._splitScrollX[tid];
+    });
+  }
   if(isDesktop())renderDesktopSidebar();
   if(isDesktop())renderDesktopRight();
   const mhEl=document.getElementById('mh');
@@ -1518,22 +1527,46 @@ function bWallets(){
 }
 
 function bSplitTable(t){
+  if(!t.lessRows)t.lessRows=[]; // migrate old structure lazily at render time (not persisted until edited)
   const totalAmt=t.rows.reduce((s,r)=>s+r.total,0);
-  const lessTotal=Object.values(t.lessPayments||{}).reduce((s,v)=>s+v,0);
-  const remaining=Math.max(0,totalAmt-lessTotal);
+
+  // Per-person share across all main rows
+  const shareByPerson={};
+  t.persons.forEach(p=>shareByPerson[p.name]=0);
+  t.rows.forEach(r=>{
+    const onCount=t.persons.filter(p=>r.enabled&&r.enabled[p.name]).length||0;
+    if(onCount===0)return;
+    const share=r.total/onCount;
+    t.persons.forEach(p=>{if(r.enabled&&r.enabled[p.name])shareByPerson[p.name]+=share;});
+  });
+
+  // Per-person total already paid, from lessRows
+  const paidByPerson={};
+  t.persons.forEach(p=>paidByPerson[p.name]=0);
+  (t.lessRows||[]).forEach(lr=>{
+    t.persons.forEach(p=>{paidByPerson[p.name]+=(lr.amounts&&lr.amounts[p.name])||0;});
+  });
+
+  // Remaining transfer per person = share - paid (negative = they're owed / overpaid, positive = they still owe)
+  const remainByPerson={};
+  t.persons.forEach(p=>remainByPerson[p.name]=shareByPerson[p.name]-paidByPerson[p.name]);
+  const allSettled=t.rows.length>0&&t.persons.every(p=>Math.abs(remainByPerson[p.name])<0.01);
+
+  const colWidth=Math.max(380,120+t.persons.length*90);
+
   return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;border:1.5px dashed transparent">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
       <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
       <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
     </div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${380+t.persons.length*80}px">
+    <div class="split-scroll-x" id="scroll-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollX=window._splitScrollX||{};window._splitScrollX['${t.id}']=this.scrollLeft;const lessEl=document.getElementById('scroll-less-${t.id}');if(lessEl)lessEl.scrollLeft=this.scrollLeft">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
         <thead>
           <tr style="background:#fafafa">
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Date</th>
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Item</th>
             <th style="text-align:right;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Total</th>
-            ${t.persons.map((p,pi)=>`<th style="text-align:center;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">${esc(p.name)}</th>`).join('')}
+            ${t.persons.map(p=>`<th style="text-align:center;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">${esc(p.name)}</th>`).join('')}
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Notes</th>
           </tr>
         </thead>
@@ -1565,30 +1598,62 @@ function bSplitTable(t){
             <td style="padding:8px;text-align:right;font-weight:700;color:var(--text);white-space:nowrap">${f$(totalAmt)}</td>
             <td colspan="${t.persons.length+1}"></td>
           </tr>
-          ${t.persons.map(p=>{
-            const paid=(t.lessPayments&&t.lessPayments[p.name])||0;
-            return `<tr style="border-top:.5px solid #f5f5f5">
-              <td colspan="2" style="padding:6px 8px;color:#888;font-size:10px">Less: ${esc(p.name)} paid</td>
-              <td colspan="${t.persons.length+2}" style="padding:6px 8px">
-                <div onclick="openLessPaymentEntry('${t.id}','${esc(p.name)}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#f5f5f5;border-radius:7px;padding:3px 10px">
-                  <span style="font-size:11px;font-weight:600;color:${paid>0?'#3B6D11':'#bbb'}">${paid>0?f$(paid):'tap to enter'}</span>
-                </div>
-              </td>
-            </tr>`;
-          }).join('')}
-          <tr style="border-top:1.5px solid #e0e0e0">
-            <td colspan="2" style="padding:8px;font-weight:700;color:${remaining>0?'#E05C7A':'#3B6D11'}">Remaining transfer</td>
-            <td colspan="${t.persons.length+2}" style="padding:8px;text-align:right;font-weight:700;color:${remaining>0?'#E05C7A':'#3B6D11'}">${f$(remaining)}</td>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- LESS SECTION — its own mini table, same columns -->
+    <div style="border-top:1.5px solid #e0e0e0;padding:10px 15px 4px">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.5px">LESS — payments already made</div>
+    </div>
+    <div class="split-scroll-x" id="scroll-less-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollXLess=window._splitScrollXLess||{};window._splitScrollXLess['${t.id}']=this.scrollLeft;const main=document.getElementById('scroll-${t.id}');if(main)main.scrollLeft=this.scrollLeft">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
+        <tbody>
+          ${(t.lessRows||[]).map((lr,li)=>`<tr style="border-top:.5px solid #f5f5f5">
+            <td style="padding:6px 8px;color:#999;white-space:nowrap">${esc(lr.date)}</td>
+            <td style="padding:6px 8px;color:var(--text);font-weight:500;white-space:nowrap">${esc(lr.item)}</td>
+            <td style="padding:6px 8px"></td>
+            ${t.persons.map(p=>{
+              const amt=(lr.amounts&&lr.amounts[p.name])||0;
+              return `<td style="padding:6px 4px;text-align:center">
+                <div onclick="openLessCellEntry('${t.id}',${li},'${esc(p.name)}')" style="cursor:pointer;font-size:10px;font-weight:600;color:${amt>0?'#3B6D11':'#ccc'}">${amt>0?f$(amt):'—'}</div>
+              </td>`;
+            }).join('')}
+            <td style="padding:6px 8px;color:#999;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">
+              <span>${esc(lr.note||'')}</span>
+              <button onclick="deleteLessRow('${t.id}',${li})" style="background:none;border:none;color:#ccc;font-size:12px;cursor:pointer;padding:0 0 0 6px">×</button>
+            </td>
+          </tr>`).join('')}
+          <tr style="border-top:.5px solid #f5f5f5">
+            <td colspan="${3+t.persons.length+1}" style="padding:6px 8px">
+              <button onclick="addLessRow('${t.id}')" style="padding:4px 10px;background:#f0f0f0;color:#555;border:none;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer">＋ Add payment row</button>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="border-top:1.5px solid #e0e0e0;background:#fafafa">
+            <td colspan="2" style="padding:8px;font-weight:700;color:var(--text);white-space:nowrap">Remaining transfer</td>
+            <td></td>
+            ${t.persons.map(p=>{
+              const rem=remainByPerson[p.name];
+              const settled=Math.abs(rem)<0.01;
+              const color=settled?'#3B6D11':rem>0?'#E05C7A':'#0C447C';
+              const sign=settled?'':(rem>0?'+':'');
+              return `<td style="padding:8px 4px;text-align:center;font-weight:700;color:${color};white-space:nowrap">${settled?'✓':sign+f$(rem)}</td>`;
+            }).join('')}
+            <td></td>
           </tr>
         </tfoot>
       </table>
     </div>
+
     <div style="padding:10px 15px;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px">
       <button onclick="addSplitPersonColumn('${t.id}')" style="padding:6px 12px;background:#f0f0f0;color:#555;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">＋ Add person</button>
-      ${t.rows.length&&remaining<=0?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">✓ Mark settled</button>`:''}
+      ${allSettled?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">✓ Mark settled</button>`:''}
     </div>
   </div>`;
 }
+
 
 
 function bFunds(){
@@ -3051,7 +3116,7 @@ function confirmDeleteCCCharge(){
 function createSplitTable(){
   const n=prompt('Table name:','New split');
   if(!n||!n.trim())return;
-  DB.splitTables.push({id:uid(),name:n.trim(),createdAt:new Date().toISOString(),settled:false,persons:[{name:'Me'}],rows:[],lessPayments:{}});
+  DB.splitTables.push({id:uid(),name:n.trim(),createdAt:new Date().toISOString(),settled:false,persons:[{name:'Me'}],rows:[],lessRows:[]});
   sv();render();
 }
 function renameSplitTable(id,name){
@@ -3083,16 +3148,30 @@ function toggleSplitPersonRow(tableId,rowIdx,personName){
   r.enabled[personName]=!r.enabled[personName];
   sv();render();
 }
-function openLessPaymentEntry(tableId,personName){
+function addLessRow(tableId){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
-  const current=(t.lessPayments&&t.lessPayments[personName])||0;
-  const val=prompt(`How much has ${personName} paid so far?`,current>0?String(current):'');
+  const item=prompt('What was this payment for?');
+  if(!item||!item.trim())return;
+  if(!t.lessRows)t.lessRows=[];
+  t.lessRows.push({date:td(),rawDate:new Date().toISOString(),item:item.trim(),amounts:{},note:''});
+  sv();showToast('Payment row added');render();
+}
+function openLessCellEntry(tableId,rowIdx,personName){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const lr=t.lessRows&&t.lessRows[rowIdx];if(!lr)return;
+  const current=(lr.amounts&&lr.amounts[personName])||0;
+  const val=prompt(`How much did ${personName} pay for "${lr.item}"?`,current>0?String(current):'');
   if(val===null)return;
   const amt=parseFloat(val);
   if(isNaN(amt)||amt<0)return alert('Please enter a valid amount');
-  if(!t.lessPayments)t.lessPayments={};
-  t.lessPayments[personName]=amt;
-  sv();showToast('Payment recorded');render();
+  if(!lr.amounts)lr.amounts={};
+  lr.amounts[personName]=amt;
+  sv();render();
+}
+function deleteLessRow(tableId,rowIdx){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t||!t.lessRows)return;
+  t.lessRows.splice(rowIdx,1);
+  sv();render();
 }
 function settleSplitTable(tableId){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
@@ -3303,7 +3382,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.2-sep16-1300-split2';
+  const VERSION='v3.3-sep16-1430-split2b';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
