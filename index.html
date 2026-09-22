@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.3-sep16-1430-split2b</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.4-sep16-1530-split2c</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1552,15 +1552,24 @@ function bSplitTable(t){
   t.persons.forEach(p=>remainByPerson[p.name]=shareByPerson[p.name]-paidByPerson[p.name]);
   const allSettled=t.rows.length>0&&t.persons.every(p=>Math.abs(remainByPerson[p.name])<0.01);
 
-  const colWidth=Math.max(380,120+t.persons.length*90);
+  const dateColW=80,itemColW=110,totalColW=75,personColW=75,notesColW=120;
+  const colWidth=dateColW+itemColW+totalColW+(t.persons.length*personColW)+notesColW;
 
   return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;border:1.5px dashed transparent">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
       <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
-      <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button onclick="addSplitPersonColumn('${t.id}')" title="Add person" style="background:#f0f0f0;color:#555;border:none;border-radius:50%;font-size:15px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
+        <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+      </div>
     </div>
     <div class="split-scroll-x" id="scroll-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollX=window._splitScrollX||{};window._splitScrollX['${t.id}']=this.scrollLeft;const lessEl=document.getElementById('scroll-less-${t.id}');if(lessEl)lessEl.scrollLeft=this.scrollLeft">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
+        <colgroup>
+          <col style="width:${dateColW}px"><col style="width:${itemColW}px"><col style="width:${totalColW}px">
+          ${t.persons.map(()=>`<col style="width:${personColW}px">`).join('')}
+          <col>
+        </colgroup>
         <thead>
           <tr style="background:#fafafa">
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Date</th>
@@ -1587,7 +1596,9 @@ function bSplitTable(t){
                   </div>
                 </td>`;
               }).join('')}
-              <td style="padding:7px 8px;color:#999;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">${esc(r.note||'')}</td>
+              <td style="padding:7px 8px;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">
+                <span onclick="editSplitRowNote('${t.id}',${ri})" style="cursor:pointer;color:${r.note?'#999':'#ccc'}">${r.note?esc(r.note):'add note'}</span>
+              </td>
             </tr>`;
           }).join('')}
           ${!t.rows.length?`<tr><td colspan="${4+t.persons.length}" style="padding:16px;text-align:center;color:#ccc;font-size:12px">Drag rows here from the tray above</td></tr>`:''}
@@ -1604,10 +1615,15 @@ function bSplitTable(t){
 
     <!-- LESS SECTION — its own mini table, same columns -->
     <div style="border-top:1.5px solid #e0e0e0;padding:10px 15px 4px">
-      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.5px">LESS — payments already made</div>
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.5px">LESS:</div>
     </div>
     <div class="split-scroll-x" id="scroll-less-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollXLess=window._splitScrollXLess||{};window._splitScrollXLess['${t.id}']=this.scrollLeft;const main=document.getElementById('scroll-${t.id}');if(main)main.scrollLeft=this.scrollLeft">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
+        <colgroup>
+          <col style="width:${dateColW}px"><col style="width:${itemColW}px"><col style="width:${totalColW}px">
+          ${t.persons.map(()=>`<col style="width:${personColW}px">`).join('')}
+          <col>
+        </colgroup>
         <tbody>
           ${(t.lessRows||[]).map((lr,li)=>`<tr style="border-top:.5px solid #f5f5f5">
             <td style="padding:6px 8px;color:#999;white-space:nowrap">${esc(lr.date)}</td>
@@ -1619,9 +1635,11 @@ function bSplitTable(t){
                 <div onclick="openLessCellEntry('${t.id}',${li},'${esc(p.name)}')" style="cursor:pointer;font-size:10px;font-weight:600;color:${amt>0?'#3B6D11':'#ccc'}">${amt>0?f$(amt):'—'}</div>
               </td>`;
             }).join('')}
-            <td style="padding:6px 8px;color:#999;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">
-              <span>${esc(lr.note||'')}</span>
-              <button onclick="deleteLessRow('${t.id}',${li})" style="background:none;border:none;color:#ccc;font-size:12px;cursor:pointer;padding:0 0 0 6px">×</button>
+            <td style="padding:6px 8px;white-space:nowrap">
+              <div style="display:flex;align-items:center;gap:5px">
+                <span onclick="editLessRowNote('${t.id}',${li})" style="cursor:pointer;color:${lr.note?'#999':'#ccc'};max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lr.note?esc(lr.note):'add note'}</span>
+                <button onclick="pendingConfirm={type:'lessRow',tableId:'${t.id}',rowIdx:${li},item:'${esc(lr.item)}'};AM='deleteConfirm';render()" style="background:none;border:none;color:#ccc;font-size:12px;cursor:pointer;padding:0;flex-shrink:0">×</button>
+              </div>
             </td>
           </tr>`).join('')}
           <tr style="border-top:.5px solid #f5f5f5">
@@ -1637,9 +1655,9 @@ function bSplitTable(t){
             ${t.persons.map(p=>{
               const rem=remainByPerson[p.name];
               const settled=Math.abs(rem)<0.01;
-              const color=settled?'#3B6D11':rem>0?'#E05C7A':'#0C447C';
-              const sign=settled?'':(rem>0?'+':'');
-              return `<td style="padding:8px 4px;text-align:center;font-weight:700;color:${color};white-space:nowrap">${settled?'✓':sign+f$(rem)}</td>`;
+              const color=settled?'#3B6D11':rem>0?'#E05C7A':'#3B6D11';
+              const sign=settled?'':(rem>0?'+':'−');
+              return `<td style="padding:8px 4px;text-align:center;font-weight:700;color:${color};white-space:nowrap">${settled?'✓':sign+f$(Math.abs(rem))}</td>`;
             }).join('')}
             <td></td>
           </tr>
@@ -1648,8 +1666,7 @@ function bSplitTable(t){
     </div>
 
     <div style="padding:10px 15px;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px">
-      <button onclick="addSplitPersonColumn('${t.id}')" style="padding:6px 12px;background:#f0f0f0;color:#555;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">＋ Add person</button>
-      ${allSettled?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto">✓ Mark settled</button>`:''}
+      ${allSettled?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">✓ Mark settled</button>`:''}
     </div>
   </div>`;
 }
@@ -2620,6 +2637,19 @@ function bModal(name){
             </div>
           </div>
         </div>`;}
+      if(pc.type==='lessRow'){
+        return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+            <div class="confirm-box">
+              <h3>Delete Payment Row?</h3>
+              <p>Delete the payment row for <b>${esc(pc.item||'this item')}</b>?<br><br>This cannot be undone.</p>
+              <div class="confirm-btns">
+                <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+                <button class="cb-red" onclick="confirmDeleteLessRow()">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>`;}
       const isF=pc.type==='fund',isG=pc.type==='group',isTmpl=pc.type==='template',isTk=pc.type==='task',isN=pc.type==='note',isW=pc.type==='wallet',isCC=pc.type==='creditCard',isR=pc.type==='resource',isCCCh=pc.type==='ccCharge',isClear=pc.type==='clearArchived';
       const fd=isF?DB.funds.find(x=>x.id===pc.id):null;
       const grp=(isG||isTmpl)?DB.transferGroups.find(x=>x.id===pc.id):null;
@@ -3173,6 +3203,28 @@ function deleteLessRow(tableId,rowIdx){
   t.lessRows.splice(rowIdx,1);
   sv();render();
 }
+function confirmDeleteLessRow(){
+  const pc=pendingConfirm;
+  const t=DB.splitTables.find(x=>x.id===pc.tableId);
+  if(t&&t.lessRows)t.lessRows.splice(pc.rowIdx,1);
+  pendingConfirm=null;AM=null;sv();showToast('Payment row deleted');render();
+}
+function editSplitRowNote(tableId,rowIdx){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const r=t.rows[rowIdx];if(!r)return;
+  const val=prompt('Note:',r.note||'');
+  if(val===null)return;
+  r.note=val.trim();
+  sv();render();
+}
+function editLessRowNote(tableId,rowIdx){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t||!t.lessRows)return;
+  const lr=t.lessRows[rowIdx];if(!lr)return;
+  const val=prompt('Note:',lr.note||'');
+  if(val===null)return;
+  lr.note=val.trim();
+  sv();render();
+}
 function settleSplitTable(tableId){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
   pendingConfirm={type:'settleTable',id:tableId};AM='confirm';render();
@@ -3382,7 +3434,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.3-sep16-1430-split2b';
+  const VERSION='v3.4-sep16-1530-split2c';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
