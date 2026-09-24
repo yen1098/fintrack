@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.4-sep16-1530-split2c</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.5-sep16-1600-split2d</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1563,7 +1563,7 @@ function bSplitTable(t){
         <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
       </div>
     </div>
-    <div class="split-scroll-x" id="scroll-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollX=window._splitScrollX||{};window._splitScrollX['${t.id}']=this.scrollLeft;const lessEl=document.getElementById('scroll-less-${t.id}');if(lessEl)lessEl.scrollLeft=this.scrollLeft">
+    <div class="split-scroll-x" id="scroll-${t.id}" style="overflow-x:auto" onscroll="syncSplitScroll('${t.id}',this,'scroll-less-${t.id}')">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
         <colgroup>
           <col style="width:${dateColW}px"><col style="width:${itemColW}px"><col style="width:${totalColW}px">
@@ -1617,7 +1617,7 @@ function bSplitTable(t){
     <div style="border-top:1.5px solid #e0e0e0;padding:10px 15px 4px">
       <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.5px">LESS:</div>
     </div>
-    <div class="split-scroll-x" id="scroll-less-${t.id}" style="overflow-x:auto" onscroll="window._splitScrollXLess=window._splitScrollXLess||{};window._splitScrollXLess['${t.id}']=this.scrollLeft;const main=document.getElementById('scroll-${t.id}');if(main)main.scrollLeft=this.scrollLeft">
+    <div class="split-scroll-x" id="scroll-less-${t.id}" style="overflow-x:auto" onscroll="syncSplitScroll('${t.id}',this,'scroll-${t.id}')">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
         <colgroup>
           <col style="width:${dateColW}px"><col style="width:${itemColW}px"><col style="width:${totalColW}px">
@@ -3178,6 +3178,26 @@ function toggleSplitPersonRow(tableId,rowIdx,personName){
   r.enabled[personName]=!r.enabled[personName];
   sv();render();
 }
+// Sync horizontal scroll between a table's main section and its Less section
+// Uses rAF throttling + a guard flag to avoid feedback loops and jank
+let _splitScrollSyncing=false;
+let _splitScrollRAF=null;
+window._splitScrollX=window._splitScrollX||{};
+function syncSplitScroll(tableId,sourceEl,targetId){
+  window._splitScrollX[tableId]=sourceEl.scrollLeft;
+  if(_splitScrollSyncing)return; // ignore scroll events caused by our own sync below
+  if(_splitScrollRAF)cancelAnimationFrame(_splitScrollRAF);
+  const left=sourceEl.scrollLeft;
+  _splitScrollRAF=requestAnimationFrame(()=>{
+    const targetEl=document.getElementById(targetId);
+    if(targetEl&&targetEl.scrollLeft!==left){
+      _splitScrollSyncing=true;
+      targetEl.scrollLeft=left;
+      _splitScrollSyncing=false;
+    }
+  });
+}
+
 function addLessRow(tableId){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
   const item=prompt('What was this payment for?');
@@ -3434,7 +3454,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.4-sep16-1530-split2c';
+  const VERSION='v3.5-sep16-1600-split2d';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
