@@ -145,7 +145,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.7-sep16-1730-fixicons</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.8-nov2-split-scroll-hold</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1584,7 +1584,7 @@ function bWallets(){
     </div>
     <div class="ct" id="split-ledger-ct">
 
-      ${splitSettledOpen?`<div class="card" style="padding:0;overflow:hidden">
+      ${splitSettledOpen?`<div class="card" style="padding:0;overflow:hidden;flex-shrink:0">
         <div style="padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
           <span style="font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.5px">SETTLED TABLES</span>
         </div>
@@ -1597,7 +1597,7 @@ function bWallets(){
         </div>`).join('')}
       </div>`:''}
 
-      <div class="card" style="padding:0;overflow:hidden" id="split-tray-card">
+      <div class="card" style="padding:0;overflow:hidden;flex-shrink:0" id="split-tray-card">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 15px;cursor:pointer" onclick="splitTrayOpen=!splitTrayOpen;render()">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:28px;height:28px;border-radius:8px;background:#EAF3DE;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" stroke-width="2.5" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></div>
@@ -1640,10 +1640,8 @@ function bSplitTable(t){
   const shareByPerson={};
   t.persons.forEach(p=>shareByPerson[p.name]=0);
   t.rows.forEach(r=>{
-    const onCount=t.persons.filter(p=>r.enabled&&r.enabled[p.name]).length||0;
-    if(onCount===0)return;
-    const share=r.total/onCount;
-    t.persons.forEach(p=>{if(r.enabled&&r.enabled[p.name])shareByPerson[p.name]+=share;});
+    const sh=splitRowShares(t,r).amt;
+    t.persons.forEach(p=>{if(sh[p.name]!==undefined)shareByPerson[p.name]+=sh[p.name];});
   });
 
   // Per-person total already paid, from lessRows
@@ -1661,7 +1659,7 @@ function bSplitTable(t){
   const dateColW=80,itemColW=110,totalColW=75,personColW=75,notesColW=120;
   const colWidth=dateColW+itemColW+totalColW+(t.persons.length*personColW)+notesColW;
 
-  return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;border:1.5px dashed transparent">
+  return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;flex-shrink:0;border:1.5px dashed transparent">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
       <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -1687,18 +1685,19 @@ function bSplitTable(t){
         </thead>
         <tbody>
           ${t.rows.map((r,ri)=>{
-            const onCount=t.persons.filter(p=>r.enabled&&r.enabled[p.name]).length||0;
-            const share=onCount>0?r.total/onCount:0;
+            const rs=splitRowShares(t,r);
             return `<tr style="border-top:.5px solid #f0f0f0">
               <td style="padding:7px 8px;color:#999;white-space:nowrap">${esc(r.date)}</td>
               <td style="padding:7px 8px;color:var(--text);font-weight:500;white-space:nowrap">${esc(r.item)}</td>
               <td style="padding:7px 8px;text-align:right;color:var(--text);font-weight:600;white-space:nowrap">${f$(r.total)}</td>
               ${t.persons.map(p=>{
                 const on=!!(r.enabled&&r.enabled[p.name]);
+                const share=rs.amt[p.name]||0;
+                const isCustom=!!rs.custom[p.name];
                 return `<td style="padding:7px 4px;text-align:center">
-                  <div onclick="toggleSplitPersonRow('${t.id}',${ri},'${esc(p.name)}')" style="display:inline-flex;flex-direction:column;align-items:center;cursor:pointer">
+                  <div onclick="toggleSplitPersonRow('${t.id}',${ri},'${esc(p.name)}')" ${on?`onpointerdown="splitHoldStart(event,'${t.id}',${ri},'${esc(p.name)}')" onpointermove="splitHoldMove(event)" onpointerup="splitHoldEnd()" onpointercancel="splitHoldEnd()" onpointerleave="splitHoldEnd()" oncontextmenu="return false"`:''} style="display:inline-flex;flex-direction:column;align-items:center;cursor:pointer${on?';user-select:none;-webkit-user-select:none;-webkit-touch-callout:none':''}">
                     <div style="width:18px;height:18px;border-radius:5px;border:1.5px solid ${on?'#4CAF82':'#ddd'};background:${on?'#4CAF82':'transparent'};display:flex;align-items:center;justify-content:center">${on?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
-                    ${on?`<span style="font-size:9px;color:#4CAF82;margin-top:2px;font-weight:600">${f$(share)}</span>`:''}
+                    ${on?`<span style="font-size:9px;color:${isCustom?'#27500A':'#4CAF82'};margin-top:2px;font-weight:${isCustom?'800':'600'}${isCustom?';text-decoration:underline dotted':''}">${f$(share)}</span>`:''}
                   </div>
                 </td>`;
               }).join('')}
@@ -3278,10 +3277,78 @@ function addSplitPersonColumn(tableId){
   sv();render();
 }
 function toggleSplitPersonRow(tableId,rowIdx,personName){
+  if(Date.now()-_splitHoldAt<800)return; // lifting the finger after a hold must not also tick/untick
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
   const r=t.rows[rowIdx];if(!r)return;
   if(!r.enabled)r.enabled={};
   r.enabled[personName]=!r.enabled[personName];
+  if(!r.enabled[personName]&&r.shares)delete r.shares[personName]; // unticked → forget their custom amount
+  sv();render();
+}
+
+// What each ticked person owes on one row.
+// Custom amounts (r.shares) are honoured; everyone else ticked splits what's left evenly.
+// If custom amounts can't add up to the row total, fall back to an even split so no money goes missing.
+// Returns {amt:{name:amount}, custom:{name:true}}
+function splitRowShares(t,r){
+  const out={amt:{},custom:{}};
+  const on=t.persons.map(p=>p.name).filter(n=>r.enabled&&r.enabled[n]);
+  if(!on.length)return out;
+  const custom=on.filter(n=>r.shares&&typeof r.shares[n]==='number'&&isFinite(r.shares[n])&&r.shares[n]>=0);
+  const free=on.filter(n=>!custom.includes(n));
+  const customSum=custom.reduce((s,n)=>s+r.shares[n],0);
+  const ok=free.length>0?customSum<=r.total+0.005:Math.abs(customSum-r.total)<=0.005;
+  if(!custom.length||!ok){on.forEach(n=>{out.amt[n]=r.total/on.length;});return out;}
+  custom.forEach(n=>{out.amt[n]=r.shares[n];out.custom[n]=true;});
+  const each=free.length?(r.total-customSum)/free.length:0;
+  free.forEach(n=>{out.amt[n]=Math.max(0,each);});
+  return out;
+}
+
+// Hold a ticked person's box (~0.5s) to set their amount on that row. A quick tap still ticks/unticks.
+let _splitHoldAt=0,_splitHold=null;
+function splitHoldStart(e,tableId,rowIdx,personName){
+  splitHoldEnd();
+  _splitHold={x:e.clientX,y:e.clientY,timer:setTimeout(()=>{
+    _splitHold=null;
+    _splitHoldAt=Date.now();
+    if(navigator.vibrate)navigator.vibrate(10);
+    editSplitPersonShare(tableId,rowIdx,personName);
+    _splitHoldAt=Date.now(); // restart the tap-guard from the moment the dialog closes
+  },450)};
+}
+function splitHoldMove(e){
+  // Finger/mouse drifted (scrolling the table) → it was not a hold
+  if(_splitHold&&Math.hypot(e.clientX-_splitHold.x,e.clientY-_splitHold.y)>10)splitHoldEnd();
+}
+function splitHoldEnd(){
+  if(_splitHold){clearTimeout(_splitHold.timer);_splitHold=null;}
+}
+function editSplitPersonShare(tableId,rowIdx,personName){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  const r=t.rows[rowIdx];if(!r)return;
+  const rs=splitRowShares(t,r);
+  const cur=rs.amt[personName];
+  if(cur===undefined)return; // not ticked
+  const onNames=t.persons.map(p=>p.name).filter(n=>r.enabled&&r.enabled[n]);
+  if(onNames.length<2){showToast(personName+' is the only one on this row, so they pay all of it');return;}
+  const val=prompt(`${personName}'s share of "${r.item}" (row total ${f$(r.total)}).\nLeave blank to split evenly.`,String(Math.round(cur*100)/100));
+  if(val===null)return;
+  const txt=val.trim();
+  if(txt===''){
+    if(r.shares&&personName in r.shares){delete r.shares[personName];sv();render();}
+    return;
+  }
+  const amt=parseFloat(txt.replace(/,/g,''));
+  if(isNaN(amt)||amt<0)return alert('Please enter a valid amount');
+  if(!rs.custom[personName]&&Math.abs(amt-cur)<0.005)return; // same as the even split — nothing to change
+  const next={...(r.shares||{}),[personName]:amt};
+  const customNames=onNames.filter(n=>typeof next[n]==='number');
+  const freeNames=onNames.filter(n=>typeof next[n]!=='number');
+  const sum=customNames.reduce((s,n)=>s+next[n],0);
+  if(freeNames.length&&sum>r.total+0.005)return alert(`That's more than the ${f$(r.total)} on this row.`);
+  if(!freeNames.length&&Math.abs(sum-r.total)>0.005)return alert(`Everyone's amounts need to add up to ${f$(r.total)} (now ${f$(sum)}). Hold someone's box and leave it blank so they take the rest.`);
+  r.shares=next;
   sv();render();
 }
 // Sync horizontal scroll between a table's main section and its Less section
@@ -3560,7 +3627,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.7-sep16-1730-fixicons';
+  const VERSION='v3.8-nov2-split-scroll-hold';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
