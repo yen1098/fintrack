@@ -38,6 +38,9 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .td{font-size:11px;color:var(--sub);margin-top:1px}
 .ta{font-size:13px;font-weight:600}
 .neg{color:#E24B4A}.pos{color:#3B6D11}.xfer{color:#7C3AED}
+.split-add-col{position:absolute;right:-9px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;background:#e8e8e8;color:#555;font-size:13px;font-weight:700;line-height:18px;text-align:center;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .12s;z-index:2;user-select:none;-webkit-user-select:none}
+.split-add-col.last{right:3px;opacity:1;pointer-events:auto}
+@media (hover:hover){.split-scroll-x th:hover .split-add-col{opacity:1;pointer-events:auto}}
 .badge{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;display:inline-block}
 .bi{background:#E6F1FB;color:#0C447C}.bok{background:#EAF3DE;color:#27500A}
 .bw{background:#FAEEDA;color:#633806}.bd{background:#FCEBEB;color:#791F1F}
@@ -145,7 +148,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.8-nov2-split-scroll-hold</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.9-nov2-addcol-totals</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1663,7 +1666,6 @@ function bSplitTable(t){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
       <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <button onclick="addSplitPersonColumn('${t.id}')" title="Add person" style="background:#f0f0f0;color:#555;border:none;border-radius:50%;font-size:15px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
         <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
       </div>
     </div>
@@ -1679,7 +1681,7 @@ function bSplitTable(t){
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Date</th>
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Item</th>
             <th style="text-align:right;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Total</th>
-            ${t.persons.map(p=>`<th style="text-align:center;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">${esc(p.name)}</th>`).join('')}
+            ${t.persons.map((p,pi)=>`<th style="text-align:center;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap;position:relative">${esc(p.name)}<span class="split-add-col${pi===t.persons.length-1?' last':''}" title="Add person${pi===t.persons.length-1?'':' after '+esc(p.name)}" onclick="event.stopPropagation();addSplitPersonColumn('${t.id}',${pi+1})">+</span></th>`).join('')}
             <th style="text-align:left;padding:7px 8px;font-weight:700;color:#999;white-space:nowrap">Notes</th>
           </tr>
         </thead>
@@ -1712,7 +1714,8 @@ function bSplitTable(t){
           <tr style="border-top:1.5px solid #e0e0e0;background:#fafafa">
             <td colspan="2" style="padding:8px;font-weight:700;color:var(--text)">Total</td>
             <td style="padding:8px;text-align:right;font-weight:700;color:var(--text);white-space:nowrap">${f$(totalAmt)}</td>
-            <td colspan="${t.persons.length+1}"></td>
+            ${t.persons.map(p=>`<td style="padding:8px 4px;text-align:center;font-weight:700;color:var(--text);white-space:nowrap">${f$(shareByPerson[p.name]||0)}</td>`).join('')}
+            <td></td>
           </tr>
         </tfoot>
       </table>
@@ -3268,12 +3271,14 @@ function confirmDeleteSplitTable(){
   }
   pendingConfirm=null;AM=null;sv();showToast('Table deleted — rows returned to tray');render();
 }
-function addSplitPersonColumn(tableId){
+function addSplitPersonColumn(tableId,atIdx){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
   const n=prompt('Person name:');
   if(!n||!n.trim())return;
   if(t.persons.some(p=>p.name===n.trim()))return alert('That person is already a column');
-  t.persons.push({name:n.trim()});
+  // atIdx = where the new column goes (the "+" on a header inserts right after that column)
+  const at=(typeof atIdx==='number'&&atIdx>=0&&atIdx<=t.persons.length)?atIdx:t.persons.length;
+  t.persons.splice(at,0,{name:n.trim()});
   sv();render();
 }
 function toggleSplitPersonRow(tableId,rowIdx,personName){
@@ -3627,7 +3632,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.8-nov2-split-scroll-hold';
+  const VERSION='v3.9-nov2-addcol-totals';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
@@ -3687,4 +3692,4 @@ function fixIOSLayout(){
 initAuth();
 </script>
 </body>
-</html>
+</html>v
