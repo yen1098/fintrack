@@ -148,7 +148,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.9-nov2-addcol-totals</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.10-nov6-collapse-delitem</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -1571,6 +1571,7 @@ function dullColor(hex){
 
 let splitTrayOpen=true;
 let splitSettledOpen=false;
+let splitCollapsed={}; // tableId → true when that table is collapsed (view-only, not saved)
 
 function bWallets(){
   const rows=DB.splitRows||[];
@@ -1663,12 +1664,15 @@ function bSplitTable(t){
   const colWidth=dateColW+itemColW+totalColW+(t.persons.length*personColW)+notesColW;
 
   return `<div class="card split-table-dropzone" id="table-${t.id}" data-table-id="${t.id}" style="padding:0;overflow:hidden;flex-shrink:0;border:1.5px dashed transparent">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:.5px solid rgba(0,0,0,.06)">
-      <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;outline:none;padding:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 15px;${splitCollapsed[t.id]?'':'border-bottom:.5px solid rgba(0,0,0,.06)'}">
+      <button onclick="toggleSplitCollapse('${t.id}')" title="${splitCollapsed[t.id]?'Expand':'Collapse'}" style="background:none;border:none;color:#bbb;font-size:13px;cursor:pointer;padding:2px 4px;flex-shrink:0;line-height:1">${splitCollapsed[t.id]?'▼':'▲'}</button>
+      <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;min-width:0;outline:none;padding:0">
+      ${splitCollapsed[t.id]?`<span onclick="toggleSplitCollapse('${t.id}')" style="font-size:11px;color:var(--sub);white-space:nowrap;cursor:pointer;flex-shrink:0">${t.rows.length} item${t.rows.length===1?'':'s'} · ${f$(totalAmt)}</span>`:''}
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
       </div>
     </div>
+    <div id="split-body-${t.id}" style="${splitCollapsed[t.id]?'display:none':''}">
     <div class="split-scroll-x" id="scroll-${t.id}" style="overflow-x:auto" onscroll="syncSplitScroll('${t.id}',this,'scroll-less-${t.id}')">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${colWidth}px">
         <colgroup>
@@ -1703,8 +1707,11 @@ function bSplitTable(t){
                   </div>
                 </td>`;
               }).join('')}
-              <td style="padding:7px 8px;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">
-                <span onclick="editSplitRowNote('${t.id}',${ri})" style="cursor:pointer;color:${r.note?'#999':'#ccc'}">${r.note?esc(r.note):'add note'}</span>
+              <td style="padding:7px 8px;white-space:nowrap">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <span onclick="editSplitRowNote('${t.id}',${ri})" style="cursor:pointer;color:${r.note?'#999':'#ccc'};max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note?esc(r.note):'add note'}</span>
+                  <button onclick="pendingConfirm={type:'splitRow',tableId:'${t.id}',rowId:'${r.id}'};AM='deleteConfirm';render()" title="Delete item" style="background:none;border:none;color:#ccc;font-size:12px;cursor:pointer;padding:2px 3px;flex-shrink:0">×</button>
+                </div>
               </td>
             </tr>`;
           }).join('')}
@@ -1775,6 +1782,7 @@ function bSplitTable(t){
 
     <div style="padding:10px 15px;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px">
       ${allSettled?`<button onclick="settleSplitTable('${t.id}')" style="padding:6px 12px;background:#EAF3DE;color:#27500A;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">✓ Mark settled</button>`:''}
+    </div>
     </div>
   </div>`;
 }
@@ -2745,6 +2753,21 @@ function bModal(name){
             </div>
           </div>
         </div>`;}
+      if(pc.type==='splitRow'){
+        const st=DB.splitTables.find(x=>x.id===pc.tableId);
+        const sr=st?st.rows.find(x=>x.id===pc.rowId):null;
+        return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+            <div class="confirm-box">
+              <h3>Delete Item?</h3>
+              <p>Delete <b>${esc(sr?sr.item:'this item')}</b> from <b>${esc(st?st.name:'this table')}</b>?<br><br>Everyone's shares and totals will be recalculated.${sr&&sr.linkedTxId?' The expense already recorded in your wallet is not changed.':''}<br><br>This cannot be undone.</p>
+              <div class="confirm-btns">
+                <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+                <button class="cb-red" onclick="confirmDeleteSplitRow()">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>`;}
       if(pc.type==='lessRow'){
         return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
           <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
@@ -3401,6 +3424,13 @@ function deleteLessRow(tableId,rowIdx){
   t.lessRows.splice(rowIdx,1);
   sv();render();
 }
+function toggleSplitCollapse(id){splitCollapsed[id]=!splitCollapsed[id];render();}
+function confirmDeleteSplitRow(){
+  const pc=pendingConfirm;
+  const t=pc?DB.splitTables.find(x=>x.id===pc.tableId):null;
+  if(t){const i=t.rows.findIndex(x=>x.id===pc.rowId);if(i!==-1)t.rows.splice(i,1);}
+  pendingConfirm=null;AM=null;sv();showToast('Item deleted');render();
+}
 function confirmDeleteLessRow(){
   const pc=pendingConfirm;
   const t=DB.splitTables.find(x=>x.id===pc.tableId);
@@ -3632,7 +3662,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.9-nov2-addcol-totals';
+  const VERSION='v3.10-nov6-collapse-delitem';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
@@ -3692,4 +3722,4 @@ function fixIOSLayout(){
 initAuth();
 </script>
 </body>
-</html>v
+</html>
