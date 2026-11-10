@@ -148,7 +148,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.10-nov6-collapse-delitem</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.12-nov10-manual-split</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -269,7 +269,7 @@ let DB={wallets:[],transactions:[],funds:[],tasks:[],borrowings:[],resources:[],
 let CS='home', AM=null;
 let hwExp=false,hwDet=null,ewId=null,wMore={},resCollapsed={},tgHoldTimer=null;
 let fhExp={},fhFull={},tgExp={},lf='all';
-let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null,aChargeId=null;
+let aFund=null,aBonus=null,aBorrow=null,aTG=null,aWalQR=null,aCreditCard=null,aChargeId=null,aTmpl=null,aTmplItem=null;
 let selectedCharges={}; // {ccId: Set of chargeIds}
 let tgMonthFilter='all';
 let homeTxLimit=10;
@@ -786,6 +786,17 @@ function migrateDB(){
   if(!DB.notes)DB.notes=[];
   if(!DB.splitRows)DB.splitRows=[];
   if(!DB.splitTables)DB.splitTables=[];
+  if(!DB.transferTemplates)DB.transferTemplates=[];
+  // Templates used to be ordinary transfer groups flagged isTemplate (so deleting one deleted a real group,
+  // and its items counted in To Spend / pending lists). Copy each into its own standalone template and
+  // unflag the group — the group itself and all its records are left exactly as they were.
+  DB.transferGroups.forEach(g=>{
+    if(g.isTemplate===true){
+      DB.transferTemplates.push({id:uid(),name:g.name||'Template',createdAt:g.createdAt||new Date().toISOString(),
+        transfers:(g.transfers||[]).map(t=>({id:uid(),title:t.title||'',fromId:t.fromId||'',toId:t.toId||'',amount:t.amount||0,note:t.note||'',fundId:t.fundId||null}))});
+      g.isTemplate=false;
+    }
+  });
   // Wrap render in try-catch so a single bad screen doesn't blank the whole app
 }
 
@@ -1058,7 +1069,63 @@ function getSelectedTotal(ccId,charges){
   return charges.filter(ch=>selectedCharges[ccId].has(ch.id)).reduce((s,ch)=>s+(ch.remaining??ch.amt),0);
 }
 
-function renameTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;const n=prompt('Rename template:',t.name);if(n&&n.trim()){t.name=n.trim();sv();render();}}
+// ---- Transfer templates ----
+// Stored separately in DB.transferTemplates. A template only remembers the shape of a group
+// (title, wallets, amount, fund, note) — no transferred/done status, no link to any real group.
+// It is never counted in To Spend, pending lists or summaries, so creating, editing or deleting
+// one can never change a transfer group, a wallet balance or a transaction.
+function tmplById(id){return (DB.transferTemplates||[]).find(x=>x.id===id);}
+function tmplNameTaken(name,exceptId){return (DB.transferTemplates||[]).some(t=>t.id!==exceptId&&t.name.trim().toLowerCase()===name.trim().toLowerCase());}
+function tmplGo(name){const a=document.activeElement;if(a&&a.blur)a.blur();oM(name);} // blur first: render() skips the modal while an input is focused
+function editTmpl(id){aTmpl=id;aTmplItem=null;tmplGo('editTemplate');}
+function newTmpl(){
+  const n=prompt('Template name:');if(n===null)return;
+  const name=n.trim();if(!name)return;
+  if(tmplNameTaken(name))return alert('A template with that name already exists. Pick another name, or edit that template.');
+  const t={id:uid(),name,createdAt:new Date().toISOString(),transfers:[]};
+  DB.transferTemplates.push(t);sv();
+  editTmpl(t.id);
+}
+function saveGroupAsTemplate(gid){
+  const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
+  if(!g.transfers.length)return alert('Add at least one transfer to this group first');
+  const n=prompt('Save as template named:',g.name);if(n===null)return;
+  const name=n.trim();if(!name)return;
+  if(tmplNameTaken(name))return alert('A template with that name already exists. Pick another name, or edit that template from the Templates button.');
+  DB.transferTemplates.push({id:uid(),name,createdAt:new Date().toISOString(),
+    transfers:g.transfers.map(t=>({id:uid(),title:t.title||'',fromId:t.fromId,toId:t.toId,amount:t.amount,note:t.note||'',fundId:t.fundId||null}))});
+  sv();showToast('Template saved — separate from this group');render();
+}
+// Save the name typed in the editor (called before leaving the editor). Returns false if it needs fixing.
+function saveTmplName(){
+  const t=tmplById(aTmpl);const el=document.getElementById('mtname');if(!t||!el)return true;
+  const n=el.value.trim();
+  if(!n){alert('Template needs a name');return false;}
+  if(n!==t.name){
+    if(tmplNameTaken(n,t.id)){alert('A template with that name already exists');return false;}
+    t.name=n;sv();
+  }
+  return true;
+}
+function tmplItemForm(itemId){if(!saveTmplName())return;aTmplItem=itemId||null;tmplGo('tmplItem');}
+function tmplDone(){if(!saveTmplName())return;aTmpl=null;aTmplItem=null;tmplGo('templates');}
+function svTmplItem(){
+  const t=tmplById(aTmpl);if(!t)return;
+  const title=vv('mxtitle'),fr=vv('mfr'),to=vv('mto'),a=parseFloat(vv('ma')),no=vv('mno'),fundId=vv('mxfund');
+  if(!title||!fr||!to||!a)return alert('Please fill title, wallets, and amount');
+  if(fr===to)return alert('From and To must be different wallets');
+  const data={title,fromId:fr,toId:to,amount:a,note:no,fundId:fundId||null};
+  const it=aTmplItem?t.transfers.find(x=>x.id===aTmplItem):null;
+  if(it)Object.assign(it,data);else t.transfers.push({id:uid(),...data});
+  aTmplItem=null;sv();showToast('Item saved');tmplGo('editTemplate');
+}
+function deleteTmplItem(itemId){if(!saveTmplName())return;pendingConfirm={type:'tmplItem',id:itemId,back:'editTemplate'};tmplGo('deleteConfirm');}
+function cancelConfirmBack(){const b=pendingConfirm&&pendingConfirm.back;pendingConfirm=null;AM=b||null;render();}
+function confirmDeleteTmplItem(){
+  const pc=pendingConfirm;const t=tmplById(aTmpl);
+  if(t&&pc)t.transfers=t.transfers.filter(x=>x.id!==pc.id);
+  const b=pc&&pc.back;pendingConfirm=null;AM=b||null;sv();showToast('Item removed from template');render();
+}
 function selectTmpl(id){
   const hidden=document.getElementById('mtmpl');if(!hidden)return;
   const current=hidden.value;
@@ -1078,8 +1145,9 @@ function selectTmpl(id){
     if(check){check.style.borderColor='#4CAF82';check.style.background='#4CAF82';check.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>';}
   }
 }
-function deleteTmpl(id){const t=DB.transferGroups.find(x=>x.id===id);if(!t)return;pendingConfirm={type:'template',id};AM='deleteConfirm';render();}
-function confirmDeleteTemplate(){const pc=pendingConfirm;DB.transferGroups=DB.transferGroups.filter(x=>x.id!==pc.id);pendingConfirm=null;AM=null;sv();showToast('Template deleted');render();}
+function deleteTmpl(id,back){const t=tmplById(id);if(!t)return;pendingConfirm={type:'template',id,back:back||null};tmplGo('deleteConfirm');}
+// Deletes ONLY the saved template. Transfer groups, wallets and transactions are never touched.
+function confirmDeleteTemplate(){const pc=pendingConfirm;DB.transferTemplates=(DB.transferTemplates||[]).filter(x=>x.id!==pc.id);const b=pc.back;pendingConfirm=null;AM=b||null;sv();showToast('Template deleted');render();}
 function selectAllCharges(ccId){
   const cc=DB.creditCards.find(x=>x.id===ccId);if(!cc)return;
   const unpaid=(cc.charges||[]).filter(ch=>(ch.remaining??ch.amt)>0);
@@ -1608,7 +1676,10 @@ function bWallets(){
             <span style="font-size:14px;font-weight:700;color:var(--text)">Unassigned splits</span>
             ${rows.length?`<span style="font-size:11px;background:#EAF3DE;color:#27500A;padding:1px 8px;border-radius:99px;font-weight:600">${rows.length}</span>`:''}
           </div>
-          <span style="color:#ccc;font-size:14px">${splitTrayOpen?'▲':'▼'}</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button onclick="event.stopPropagation();openSplitRecord()" style="padding:4px 10px;background:#f0f0f0;color:#555;border:none;border-radius:99px;font-size:11px;font-weight:600;cursor:pointer">+ Add record</button>
+            <span style="color:#ccc;font-size:14px">${splitTrayOpen?'▲':'▼'}</span>
+          </div>
         </div>
         ${splitTrayOpen?`<div style="border-top:.5px solid rgba(0,0,0,.06)" id="split-tray-rows">
           ${rows.length?rows.map(r=>`<div class="split-drag-row" id="sdr-${r.id}" data-row-id="${r.id}"
@@ -1619,10 +1690,11 @@ function bWallets(){
             <div style="width:18px;color:#ddd;flex-shrink:0;font-size:14px">⠿</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.item)}</div>
-              <div style="font-size:11px;color:var(--sub);margin-top:1px">${esc(r.date)} · Paid by ${esc(r.payer)}</div>
+              <div style="font-size:11px;color:var(--sub);margin-top:1px">${esc(r.date)} · Paid by ${esc(r.payer)}${r.manual?' · Manual':''}</div>
             </div>
             <div style="font-size:13px;font-weight:700;color:var(--text);flex-shrink:0">${f$(r.total)}</div>
-          </div>`).join(''):`<div style="padding:24px 15px;text-align:center;font-size:12px;color:var(--sub)">No unassigned split bills.<br>Toggle "Split bill" when adding an expense to add one here.</div>`}
+            ${r.manual?`<button onclick="event.stopPropagation();deleteTrayRow('${r.id}')" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()" ontouchend="event.stopPropagation()" title="Delete record" style="background:none;border:none;color:#ccc;font-size:15px;cursor:pointer;padding:4px 2px;flex-shrink:0;line-height:1">×</button>`:''}
+          </div>`).join(''):`<div style="padding:24px 15px;text-align:center;font-size:12px;color:var(--sub);line-height:1.6">No unassigned split bills.<br>Tap “+ Add record” for a manual one that moves no money,<br>or toggle "Split bill" when adding an expense.</div>`}
         </div>`:''}
       </div>
 
@@ -1715,7 +1787,12 @@ function bSplitTable(t){
               </td>
             </tr>`;
           }).join('')}
-          ${!t.rows.length?`<tr><td colspan="${4+t.persons.length}" style="padding:16px;text-align:center;color:#ccc;font-size:12px">Drag rows here from the tray above</td></tr>`:''}
+          ${!t.rows.length?`<tr><td colspan="${4+t.persons.length}" style="padding:16px;text-align:center;color:#ccc;font-size:12px">Drag rows here from the tray above, or add a record below</td></tr>`:''}
+          <tr style="border-top:.5px solid #f5f5f5">
+            <td colspan="${4+t.persons.length}" style="padding:6px 8px">
+              <button onclick="openSplitRecord('${t.id}')" style="padding:4px 10px;background:#f0f0f0;color:#555;border:none;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer">＋ Add record</button>
+            </td>
+          </tr>
         </tbody>
         <tfoot>
           <tr style="border-top:1.5px solid #e0e0e0;background:#fafafa">
@@ -1913,7 +1990,7 @@ function bTransfers(){
     return key===tgMonthFilter;
   });
   return `<div class="screen">
-    <div class="ab"><span class="abt">Transfer Groups</span><div style="display:flex;gap:6px"><span class="abi" onclick="oM('allXferSummary')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span><span class="abi" onclick="oM('newgroup')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div></div>
+    <div class="ab"><span class="abt">Transfer Groups</span><div style="display:flex;gap:6px"><span class="abi" title="Templates" onclick="oM('templates')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span><span class="abi" onclick="oM('allXferSummary')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span><span class="abi" onclick="oM('newgroup')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div></div>
     <div class="ct">
       <div class="card" style="background:#EDE9FE;border:none;padding:10px 13px">
         <div style="font-size:12px;color:#5B21B6;font-weight:600;margin-bottom:3px">ℹ️ How it works</div>
@@ -1943,7 +2020,6 @@ function bTransfers(){
             <div style="min-width:0;flex:1">
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:14px;font-weight:600;color:var(--text)">${esc(g.name)}</span>
-                ${g.isTemplate?'<span class="badge bpur">Template</span>':''}
               </div>
               <div style="font-size:11px;color:var(--sub);margin-top:2px">${tc} item${tc!==1?'s':''} · ${f$(totalAmt)} · ${dc}/${tc} done</div>
               ${trail?`<div style="font-size:10px;color:#ccc;margin-top:2px">${trail}</div>`:''}
@@ -1985,7 +2061,7 @@ function bTransfers(){
             <div style="padding:10px 14px;background:#f8f8f8;border-top:.5px solid rgba(0,0,0,.06);display:flex;gap:8px;flex-wrap:wrap">
               ${!allDone&&g.transfers.some(t=>!t.transferred)?`<button style="margin:0;font-size:12px;padding:8px 12px;background:#7C3AED;color:#fff;border:none;border-radius:9px;font-weight:600;cursor:pointer;flex:1" onclick="askTransferAll('${g.id}')">Transfer All</button>`:''}
               <button class="btns" style="margin:0;font-size:12px;padding:8px;flex:1;min-width:100px" onclick="aTG='${g.id}';oM('addxfer')">＋ Add transfer</button>
-              <button class="btns" style="margin:0;font-size:12px;padding:8px" onclick="toggleTemplate('${g.id}')">${g.isTemplate?'Template ✓':'Set as template'}</button>
+              <button class="btns" style="margin:0;font-size:12px;padding:8px" onclick="saveGroupAsTemplate('${g.id}')">Save as template</button>
             </div>
           </div>`:''}
         </div>`;
@@ -1995,8 +2071,6 @@ function bTransfers(){
     ${nav()}
   </div>`;
 }
-
-function toggleTemplate(gid){const g=DB.transferGroups.find(x=>x.id===gid);if(g){g.isTemplate=!g.isTemplate;sv();render();}}
 
 function askTransferAll(gid){
   const g=DB.transferGroups.find(x=>x.id===gid);if(!g)return;
@@ -2448,7 +2522,7 @@ function bModal(name){
   const wOp=DB.wallets.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   const fO='<option value="">— none —</option>'+DB.funds.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
   const bk=BANKS.map(b=>`<option value="${b}">${b}</option>`).join('');
-  const templates=DB.transferGroups.filter(g=>g.isTemplate);
+  const templates=DB.transferTemplates||[];
   const W=(t,b)=>`<div class="modal" onclick="event.stopPropagation()"><div class="mtitle">${t}<span class="mclose" onclick="cM()">×</span></div>${b}</div>`;
 
   switch(name){
@@ -2651,7 +2725,7 @@ function bModal(name){
             <span style="font-size:13px;color:#333;font-weight:500">${esc(t.name)}</span>
           </div>
           <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-            <button onclick="renameTmpl('${t.id}')" style="padding:3px 9px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Rename</button>
+            <button onclick="editTmpl('${t.id}')" style="padding:3px 9px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Edit</button>
             <button onclick="deleteTmpl('${t.id}')" style="padding:3px 9px;background:#FCEBEB;color:#C0192C;border:none;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>
           </div>
         </div>`).join('')}
@@ -2659,6 +2733,84 @@ function bModal(name){
       <input type="hidden" id="mtmpl" value="">`:''}
       <div class="field"><label>Group name *</label><input id="mgn" type="text" placeholder="e.g. June Salary Day" autocomplete="off"></div>
       <button class="btnp" onclick="svGroup()">Create group</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'splitRecord':{
+      const tgt=splitRecordTarget?(DB.splitTables||[]).find(x=>x.id===splitRecordTarget):null;
+      const people=[...new Set([...(tgt?tgt.persons.map(p=>p.name):[]),...(DB.splitTables||[]).flatMap(t=>t.persons.map(p=>p.name)),...(DB.splitRows||[]).map(r=>r.payer)])].filter(n=>n&&n!=='Me');
+      const d=new Date();const today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      return W(tgt?'Add Record to '+esc(tgt.name):'Add Split Record',`
+      <div style="font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:12px">A manual record for the Split Ledger only. It isn't linked to any wallet, expense or fund, so no money moves anywhere in FinTrack.${tgt?' It goes straight into this table.':' It goes to the Unassigned tray.'}</div>
+      <div class="field"><label>Item *</label><input id="srItem" type="text" placeholder="e.g. Group dinner" autocomplete="off"></div>
+      <div class="field"><label>Total amount (₱) *</label><input id="srAmt" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>Date</label><input id="srDate" type="date" value="${today}"></div>
+      <div class="field"><label>Who paid?</label>
+        <select id="srPayer" onchange="document.getElementById('srPayerNameWrap').style.display=this.value==='other'?'block':'none'">
+          <option value="me">Me</option>
+          <option value="other">Someone else</option>
+        </select>
+      </div>
+      <div id="srPayerNameWrap" style="display:none" class="field"><label>Their name</label><input id="srPayerName" type="text" list="sr-people" placeholder="e.g. Ate" autocomplete="off"><datalist id="sr-people">${people.map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
+      <div class="field"><label>Notes (optional)</label><textarea id="srNote" placeholder="Optional"></textarea></div>
+      <button class="btnp" onclick="svSplitRecord()">${tgt?'Add to table':'Add to tray'}</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'templates':{
+      const list=DB.transferTemplates||[];
+      return W('Transfer Templates',`
+      <div style="font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:12px">Templates are saved copies. Editing or deleting one never changes your transfer groups or any money records.</div>
+      ${list.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        ${list.map(t=>{
+          const tot=t.transfers.reduce((s,x)=>s+(x.amount||0),0);
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fafafa;border-radius:12px;border:1.5px solid #eee">
+            <div style="min-width:0">
+              <div style="font-size:13px;color:#333;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
+              <div style="font-size:11px;color:var(--sub);margin-top:1px">${t.transfers.length} item${t.transfers.length===1?'':'s'} · ${f$(tot)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button onclick="editTmpl('${t.id}')" style="padding:4px 10px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Edit</button>
+              <button onclick="deleteTmpl('${t.id}','templates')" style="padding:4px 10px;background:#FCEBEB;color:#C0192C;border:none;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>
+            </div>
+          </div>`;}).join('')}
+      </div>`:`<div style="text-align:center;font-size:12px;color:var(--sub);padding:14px 0 18px;line-height:1.6">No templates yet.<br>Open a group and tap “Save as template”, or create one below.</div>`}
+      <button class="btnp" onclick="newTmpl()">＋ New template</button><button class="btns" onclick="cM()">Close</button>`);}
+
+    case 'editTemplate':{
+      const t=tmplById(aTmpl);
+      if(!t)return W('Edit Template',`<div style="text-align:center;font-size:12px;color:var(--sub);padding:14px 0">Template not found.</div><button class="btns" onclick="tmplGo('templates')">Back</button>`);
+      return W('Edit Template',`
+      <div class="field"><label>Template name *</label><input id="mtname" type="text" value="${esc(t.name)}" autocomplete="off"></div>
+      <div style="font-size:10px;color:#ccc;font-weight:700;letter-spacing:.8px;margin-bottom:8px">ITEMS</div>
+      ${t.transfers.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${t.transfers.map(it=>{
+          const fw=gW(it.fromId),tw=gW(it.toId),fd=it.fundId?DB.funds.find(x=>x.id===it.fundId):null;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fafafa;border-radius:12px;border:1.5px solid #eee">
+            <div style="min-width:0;flex:1">
+              <div style="font-size:13px;color:#333;font-weight:600">${esc(it.title||'Transfer')}</div>
+              <div style="font-size:12px;font-weight:600;color:var(--blue2);margin-top:1px">${f$(it.amount)}</div>
+              <div style="font-size:11px;color:var(--sub)">${fw?esc(fw.name):'?'} → ${tw?esc(tw.name):'?'}${fd?' (→ Fund: '+esc(fd.name)+')':''}</div>
+              ${it.note?`<div style="font-size:10px;color:#bbb;font-style:italic;margin-top:1px">${esc(it.note)}</div>`:''}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button onclick="tmplItemForm('${it.id}')" style="padding:4px 10px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:11px;cursor:pointer">Edit</button>
+              <button onclick="deleteTmplItem('${it.id}')" style="padding:4px 10px;background:#FCEBEB;color:#C0192C;border:none;border-radius:6px;font-size:11px;cursor:pointer">×</button>
+            </div>
+          </div>`;}).join('')}
+      </div>`:`<div style="text-align:center;font-size:12px;color:var(--sub);padding:10px 0 14px">No items yet.</div>`}
+      <button class="btns" onclick="tmplItemForm()">＋ Add item</button>
+      <button class="btnp" onclick="tmplDone()">Done</button>`);}
+
+    case 'tmplItem':{
+      const t=tmplById(aTmpl);
+      const it=t&&aTmplItem?t.transfers.find(x=>x.id===aTmplItem):null;
+      const wOpt=sel=>(sel&&!gW(sel)?'<option value="" selected>— wallet removed, choose —</option>':'')+DB.wallets.map(w=>`<option value="${w.id}" ${w.id===sel?'selected':''}>${esc(w.name)}</option>`).join('');
+      const fOpt='<option value="">— none —</option>'+DB.funds.map(f=>`<option value="${f.id}" ${it&&it.fundId===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
+      return W(it?'Edit Template Item':'Add Template Item',`
+      <div class="field"><label>Transfer title *</label><input id="mxtitle" type="text" value="${it?esc(it.title):''}" placeholder="e.g. GCash Allowance" autocomplete="off"></div>
+      <div class="field"><label>From wallet *</label><select id="mfr">${wOpt(it?it.fromId:defaultFromWalletId)}</select></div>
+      <div class="field"><label>To wallet *</label><select id="mto">${wOpt(it?it.toId:'')}</select></div>
+      <div class="field"><label>Amount (₱) *</label><input id="ma" type="number" inputmode="decimal" value="${it?it.amount:''}" placeholder="0"></div>
+      <div class="field"><label>Allocate to fund (optional)</label><select id="mxfund">${fOpt}</select></div>
+      <div class="field"><label>Notes</label><textarea id="mno" placeholder="e.g. Monthly savings allocation">${it?esc(it.note||''):''}</textarea></div>
+      <button class="btnp" onclick="svTmplItem()">Save item</button><button class="btns" onclick="tmplGo('editTemplate')">Back</button>`);}
 
     case 'addxfer':{
       const wOstar=DB.wallets.map(w=>`<option value="${w.id}" ${w.id===defaultFromWalletId?'selected':''}>${w.id===defaultFromWalletId?'✓ ':''}${esc(w.name)} (${f$(w.currentBalance)})</option>`).join('');
@@ -2749,6 +2901,37 @@ function bModal(name){
               <div class="confirm-btns">
                 <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
                 <button class="cb-red" onclick="confirmDeleteSplitTable()">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>`;}
+      if(pc.type==='template'||pc.type==='tmplItem'){
+        const isItem=pc.type==='tmplItem';
+        const tt=tmplById(isItem?aTmpl:pc.id);
+        const ti=isItem&&tt?tt.transfers.find(x=>x.id===pc.id):null;
+        const nm=isItem?(ti?(ti.title||'this item'):'this item'):(tt?tt.name:'this template');
+        return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){cancelConfirmBack()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+            <div class="confirm-box">
+              <h3>${isItem?'Remove Item?':'Delete Template?'}</h3>
+              <p>${isItem?'Remove':'Delete'} <b>${esc(nm)}</b>${isItem?' from this template':''}?<br><br>${isItem?'This only changes the template.':'Only the saved template is deleted.'} Your transfer groups and all money records stay exactly as they are.<br><br>This cannot be undone.</p>
+              <div class="confirm-btns">
+                <button class="cb-cancel" onclick="cancelConfirmBack()">Cancel</button>
+                <button class="cb-red" onclick="${isItem?'confirmDeleteTmplItem':'confirmDeleteTemplate'}()">${isItem?'Remove':'Delete'}</button>
+              </div>
+            </div>
+          </div>
+        </div>`;}
+      if(pc.type==='trayRow'){
+        const sr=(DB.splitRows||[]).find(x=>x.id===pc.id);
+        return `<div class="overlay" id="ov" onclick="if(event.target.id==='ov'){pendingConfirm=null;AM=null;render()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px">
+            <div class="confirm-box">
+              <h3>Delete Record?</h3>
+              <p>Delete <b>${esc(sr?sr.item:'this record')}</b> from Unassigned splits?<br><br>It isn't linked to any wallet, so no balances change.<br><br>This cannot be undone.</p>
+              <div class="confirm-btns">
+                <button class="cb-cancel" onclick="pendingConfirm=null;AM=null;render()">Cancel</button>
+                <button class="cb-red" onclick="confirmDeleteTrayRow()">Delete</button>
               </div>
             </div>
           </div>
@@ -3127,7 +3310,7 @@ function svBU(){
 function svGroup(){
   const n=vv('mgn');if(!n)return alert('Please enter a group name');
   const tmplId=vv('mtmpl');let transfers=[];
-  if(tmplId){const tmpl=DB.transferGroups.find(x=>x.id===tmplId);if(tmpl){transfers=tmpl.transfers.map(t=>({...t,id:uid(),transferred:false,done:false}));}}
+  if(tmplId){const tmpl=tmplById(tmplId);if(tmpl){transfers=tmpl.transfers.map(t=>({...t,id:uid(),transferred:false,done:false}));}}
   DB.transferGroups.push({id:uid(),name:n,transfers,isTemplate:false,createdAt:new Date().toISOString()});
   sv();cM();goTo('transfers');
 }
@@ -3289,7 +3472,7 @@ function confirmDeleteSplitTable(){
   const t=DB.splitTables.find(x=>x.id===pc.id);
   if(t){
     // Return rows to the tray instead of losing them
-    t.rows.forEach(r=>{DB.splitRows.push({id:r.id,date:r.date,rawDate:r.rawDate,item:r.item,total:r.total,cat:r.cat,payer:r.payer,payerIsMe:r.payerIsMe,note:r.note,linkedTxId:r.linkedTxId,sourceWalletId:r.sourceWalletId});});
+    t.rows.forEach(r=>{DB.splitRows.push({id:r.id,date:r.date,rawDate:r.rawDate,item:r.item,total:r.total,cat:r.cat,payer:r.payer,payerIsMe:r.payerIsMe,note:r.note,linkedTxId:r.linkedTxId,sourceWalletId:r.sourceWalletId,manual:r.manual});});
     DB.splitTables=DB.splitTables.filter(x=>x.id!==pc.id);
   }
   pendingConfirm=null;AM=null;sv();showToast('Table deleted — rows returned to tray');render();
@@ -3423,6 +3606,49 @@ function deleteLessRow(tableId,rowIdx){
   const t=DB.splitTables.find(x=>x.id===tableId);if(!t||!t.lessRows)return;
   t.lessRows.splice(rowIdx,1);
   sv();render();
+}
+// Manual split record: lives only in the Split Ledger. No transaction, no wallet, no fund —
+// nothing here can change a balance or To Spend. (manual:true tells settlement to skip wallet logic.)
+let splitRecordTarget=null; // table id when "+ Add record" was tapped at the bottom of a table; null = goes to the tray
+function openSplitRecord(tableId){splitRecordTarget=tableId||null;oM('splitRecord');}
+function svSplitRecord(){
+  const item=vv('srItem'),a=parseFloat(vv('srAmt')),dv=vv('srDate'),no=vv('srNote');
+  if(!item||!a||a<=0)return alert('Please fill in the item and a total amount');
+  let isMe=(vv('srPayer')||'me')==='me';
+  let payerName='Me';
+  if(!isMe){
+    payerName=(vv('srPayerName')||'').trim();
+    if(!payerName)return alert('Please enter who paid');
+    if(payerName.toLowerCase()==='me'){isMe=true;payerName='Me';}
+    else{
+      // reuse the exact spelling of someone already in the ledger so they stay one column
+      const known=[...(DB.splitTables||[]).flatMap(t=>t.persons.map(p=>p.name)),...(DB.splitRows||[]).map(r=>r.payer)].find(n=>n&&n.toLowerCase()===payerName.toLowerCase());
+      if(known)payerName=known;
+    }
+  }
+  const when=dv?new Date(dv+'T12:00:00'):new Date();
+  const rec={
+    id:uid(),date:when.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),rawDate:when.toISOString(),
+    item,total:a,cat:'Other',payer:payerName,payerIsMe:isMe,note:no,linkedTxId:null,sourceWalletId:null,manual:true
+  };
+  DB.splitRows.push(rec);
+  const act=document.activeElement;if(act&&act.blur)act.blur();
+  const target=splitRecordTarget&&DB.splitTables.some(x=>x.id===splitRecordTarget)?splitRecordTarget:null;
+  splitRecordTarget=null;
+  if(target){
+    // straight into the table (same step as dragging it in from the tray)
+    assignSplitRowToTable(rec.id,target);
+    cM();
+    return;
+  }
+  splitTrayOpen=true;
+  sv();cM();showToast('Added to Split Ledger tray');
+}
+function deleteTrayRow(id){pendingConfirm={type:'trayRow',id};AM='deleteConfirm';render();}
+function confirmDeleteTrayRow(){
+  const pc=pendingConfirm;
+  if(pc)DB.splitRows=(DB.splitRows||[]).filter(x=>x.id!==pc.id);
+  pendingConfirm=null;AM=null;sv();showToast('Record deleted');render();
 }
 function toggleSplitCollapse(id){splitCollapsed[id]=!splitCollapsed[id];render();}
 function confirmDeleteSplitRow(){
@@ -3662,7 +3888,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.10-nov6-collapse-delitem';
+  const VERSION='v3.12-nov10-manual-split';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
