@@ -69,6 +69,9 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .wcard-exp{border-radius:16px 16px 0 0;margin-bottom:0}
 .wdrop{background:#EBF4FF;border-radius:0 0 14px 14px;padding:12px;border:.5px solid rgba(0,0,0,.07);border-top:none;margin-bottom:8px}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
+#calc-fab{position:fixed;left:0;top:0;width:52px;height:52px;border-radius:50%;background:#1A1A2E;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:250;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;cursor:grab;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+#calc-fab.dragging{cursor:grabbing;opacity:.92;box-shadow:0 8px 22px rgba(0,0,0,.34)}
+#calc-panel{position:fixed;z-index:260;background:#fff;border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.28);padding:12px;display:none}
 .modal{background:var(--white);border-radius:24px 24px 0 0;padding:20px 16px env(safe-area-inset-bottom,28px);width:100%;max-width:430px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mtitle{font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
 .mclose{cursor:pointer;color:#aaa;font-size:26px;line-height:1;padding:0 4px}
@@ -148,7 +151,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <div style="font-size:36px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:6px">FinTrack</div>
     <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:48px">Your personal finance tracker</div>
     <!-- Loading spinner shown by default while auth check runs -->
-    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.12-nov10-manual-split</div>
+    <div style="position:fixed;top:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:10px;z-index:9999">v3.13-nov11-wallets-calc-image</div>
     <div id="login-checking" style="display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
       <div style="color:rgba(255,255,255,.4);font-size:12px">Checking session...</div>
@@ -170,6 +173,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
   <div id="mh"></div>
 </div>
 <div id="bottom-nav-root" style="display:none"></div>
+<div id="calc-fab-root" style="display:none"></div>
 <div id="toast">✓ Done!</div>
 <div id="qr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;flex-direction:column;align-items:center;justify-content:center" onclick="closeQR()">
   <div style="position:relative;max-width:320px;width:90%" onclick="event.stopPropagation()">
@@ -303,6 +307,7 @@ async function signOut(){
   currentUser=null;
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
+  calcFabSync();
 }
 
 async function loadFromCloud(){
@@ -533,6 +538,7 @@ function renderDesktopSidebar(){
 }
 
 function showLogin(){
+  const _cf=document.getElementById('calc-fab-root');if(_cf)_cf.style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.body.style.background='#1a1a2e';
   const themeC=document.getElementById('theme-color-meta');
@@ -845,6 +851,7 @@ function render(){
   const shScrollY=shEl?shEl.scrollTop:0;
   shEl.innerHTML=(screens[CS]||bHome)();
   nav(); // populate persistent bottom-nav-root (outside #app overflow context)
+  calcFabSync(); // mobile floating calculator (shown on the mobile layout only)
   const ctNew=document.querySelector('.ct');
   if(ctNew&&scrollY)ctNew.scrollTop=scrollY;
   if(shEl&&shScrollY&&isDesktop())shEl.scrollTop=shScrollY;
@@ -1156,8 +1163,15 @@ function selectAllCharges(ccId){
   render();
 }
 let calcExpr='';
+// The calculator exists twice: the desktop side panel (#calc-display) and the mobile floating one (#calc-display-m).
+// Only one is ever visible, so always work with whichever display is on screen.
+function calcDisplayEl(){
+  const ids=['calc-display','calc-display-m'];
+  for(const id of ids){const el=document.getElementById(id);if(el&&el.getClientRects().length)return el;}
+  return document.getElementById('calc-display')||document.getElementById('calc-display-m');
+}
 function calcInput(k){
-  const d=document.getElementById('calc-display');if(!d)return;
+  const d=calcDisplayEl();if(!d)return;
   const setVal=(v)=>{if(d.tagName==='INPUT')d.value=v;else d.textContent=v;};
   if(k==='AC'){calcExpr='';setVal('0');return;}
   if(k==='⌫'){calcExpr=calcExpr.slice(0,-1)||'';setVal(calcExpr||'0');return;}
@@ -1174,28 +1188,176 @@ function calcInput(k){
 }
 function calcKeyHandler(e){
   // Only intercept if calc input is actually focused
-  const d=document.getElementById('calc-display');
+  const d=calcDisplayEl();
   if(!d||document.activeElement!==d)return;
   if(e.key==='Enter'||e.key==='='){e.preventDefault();calcInput('=');}
   else if(e.key==='Escape'){e.preventDefault();calcInput('AC');}
   // All other keys (digits, operators, backspace) handled natively by the input
 }
+function calcCopyBtnEl(){
+  const d=calcDisplayEl();
+  return d&&d.parentElement?d.parentElement.querySelector('[id^="calc-copy-btn"]'):null;
+}
 function showCalcCopy(){
-  const btn=document.getElementById('calc-copy-btn');
+  const btn=calcCopyBtnEl();
   if(!btn)return;
   btn.style.display='block';
   clearTimeout(window.calcCopyTimer);
   window.calcCopyTimer=setTimeout(()=>{btn.style.display='none';},2000);
 }
 function copyCalcValue(){
-  const d=document.getElementById('calc-display');
+  const d=calcDisplayEl();
   if(!d)return;
   const val=d.tagName==='INPUT'?d.value:d.textContent;
   navigator.clipboard.writeText(val).then(()=>{
-    const btn=document.getElementById('calc-copy-btn');
+    const btn=calcCopyBtnEl();
     if(btn){btn.textContent='Copied!';setTimeout(()=>{btn.style.display='none';btn.textContent='Copy';},1000);}
   });
 }
+
+// ---- Mobile floating calculator ----
+// A round button you can drag anywhere; on release it snaps to the nearest left/right edge.
+// Tap it to open the same calculator as the desktop panel. Lives outside #app (like the bottom nav)
+// so it never touches the scroll layout; only the button itself has touch-action:none.
+const CALC_FAB=52,CALC_M=12;
+let calcFab={x:0,y:0,side:'right',drag:false,sx:0,sy:0,ox:0,oy:0,id:null,open:false,built:false};
+function calcFabMetrics(){
+  const nav=document.querySelector('.bn');
+  const navH=nav?nav.offsetHeight:64;
+  const p=document.createElement('div');
+  p.style.cssText='position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px)';
+  document.body.appendChild(p);
+  const safeTop=parseFloat(getComputedStyle(p).paddingTop)||0;
+  p.remove();
+  return {W:window.innerWidth,H:window.innerHeight,navH,minY:safeTop+8,maxY:window.innerHeight-navH-8-CALC_FAB};
+}
+function calcFabClampY(y,m){return Math.max(m.minY,Math.min(m.maxY,y));}
+function calcFabApply(animate){
+  const fab=document.getElementById('calc-fab');if(!fab)return;
+  fab.style.transition=animate?'':'none';
+  fab.style.transform=`translate(${calcFab.x}px,${calcFab.y}px)`;
+}
+// Put the button where it belongs: remembered spot, otherwise the lower-right corner
+// (kept clear of the Home screen's quick-actions bar).
+function calcFabPlace(){
+  const m=calcFabMetrics();
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem('fintrack-calc-pos')||'null');}catch(e){}
+  calcFab.side=saved&&saved.side==='left'?'left':'right';
+  const y=saved&&typeof saved.yf==='number'?saved.yf*m.H:m.H-m.navH-92-CALC_FAB;
+  calcFab.x=calcFab.side==='left'?CALC_M:m.W-CALC_FAB-CALC_M;
+  calcFab.y=calcFabClampY(y,m);
+  calcFabApply(false);
+}
+function calcFabSave(){
+  try{localStorage.setItem('fintrack-calc-pos',JSON.stringify({side:calcFab.side,yf:calcFab.y/window.innerHeight}));}catch(e){}
+}
+function calcFabBuild(){
+  if(calcFab.built)return;
+  const root=document.getElementById('calc-fab-root');if(!root)return;
+  const b=(k,bg,fg,extra)=>`<button onclick="calcInput('${k}')" style="${extra||''}padding:13px 4px;background:${bg};color:${fg};border:.5px solid rgba(0,0,0,.07);border-radius:10px;font-size:18px;font-weight:500;cursor:pointer;touch-action:manipulation">${k}</button>`;
+  root.innerHTML=`
+    <div id="calc-fab" role="button" aria-label="Calculator">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="5.5" width="8" height="3.5" rx=".8"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01"/></svg>
+    </div>
+    <div id="calc-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:600;color:#8E8E93;letter-spacing:.3px">CALCULATOR</span>
+        <button onclick="calcFabToggle(false)" aria-label="Close calculator" style="background:#F5F5F7;border:none;color:#8E8E93;width:24px;height:24px;border-radius:50%;font-size:14px;line-height:1;cursor:pointer">×</button>
+      </div>
+      <div style="position:relative">
+        <input id="calc-display-m" type="text" inputmode="none" value="0" autocomplete="off"
+          oninput="calcExpr=this.value"
+          onfocus="if(this.value==='0'){this.value='';calcExpr='';}showCalcCopy()"
+          onblur="if(!this.value){this.value='0';calcExpr='';}"
+          style="background:#F5F5F7;border:none;outline:none;border-radius:10px;padding:10px 14px;font-size:24px;font-weight:300;color:#1A1A2E;text-align:right;margin-bottom:8px;height:52px;width:100%;letter-spacing:-.5px;font-family:-apple-system,sans-serif">
+        <div id="calc-copy-btn-m" onclick="copyCalcValue()" style="display:none;position:absolute;top:-28px;right:0;background:#1A1A2E;color:#fff;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;cursor:pointer;z-index:10">Copy</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+        ${b('AC','#FFE5E5','#C0192C')}${b('⌫','#F5F5F7','#8E8E93')}${b('(','#F5F5F7','#4CAF82')}${b(')','#F5F5F7','#4CAF82')}
+        ${b('7','#fff','#1A1A2E')}${b('8','#fff','#1A1A2E')}${b('9','#fff','#1A1A2E')}${b('/','#F5F5F7','#4CAF82')}
+        ${b('4','#fff','#1A1A2E')}${b('5','#fff','#1A1A2E')}${b('6','#fff','#1A1A2E')}${b('*','#F5F5F7','#4CAF82')}
+        ${b('1','#fff','#1A1A2E')}${b('2','#fff','#1A1A2E')}${b('3','#fff','#1A1A2E')}${b('-','#F5F5F7','#4CAF82')}
+        ${b('0','#fff','#1A1A2E','grid-column:1/3;')}${b('.','#fff','#1A1A2E')}${b('+','#F5F5F7','#4CAF82')}
+        <button onclick="calcInput('=')" style="grid-column:1/5;padding:14px;background:#1A1A2E;color:#fff;border:none;border-radius:10px;font-size:18px;font-weight:500;cursor:pointer;touch-action:manipulation">=</button>
+      </div>
+    </div>`;
+  const fab=document.getElementById('calc-fab');
+  fab.addEventListener('pointerdown',e=>{
+    calcFab.id=e.pointerId;calcFab.sx=e.clientX;calcFab.sy=e.clientY;calcFab.ox=calcFab.x;calcFab.oy=calcFab.y;calcFab.drag=false;
+    try{fab.setPointerCapture(e.pointerId);}catch(err){}
+  });
+  fab.addEventListener('pointermove',e=>{
+    if(e.pointerId!==calcFab.id)return;
+    const dx=e.clientX-calcFab.sx,dy=e.clientY-calcFab.sy;
+    if(!calcFab.drag&&Math.hypot(dx,dy)>6){calcFab.drag=true;fab.classList.add('dragging');calcFabToggle(false);}
+    if(calcFab.drag){
+      const m=calcFabMetrics();
+      calcFab.x=Math.max(CALC_M,Math.min(m.W-CALC_FAB-CALC_M,calcFab.ox+dx));
+      calcFab.y=calcFabClampY(calcFab.oy+dy,m);
+      calcFabApply(false);
+    }
+  });
+  const end=e=>{
+    if(e.pointerId!==calcFab.id)return;
+    calcFab.id=null;
+    fab.classList.remove('dragging');
+    if(calcFab.drag){
+      calcFab.drag=false;
+      const m=calcFabMetrics();
+      calcFab.side=(calcFab.x+CALC_FAB/2)<m.W/2?'left':'right';
+      calcFab.x=calcFab.side==='left'?CALC_M:m.W-CALC_FAB-CALC_M;
+      calcFab.y=calcFabClampY(calcFab.y,m);
+      calcFabApply(true);   // glide to the edge
+      calcFabSave();
+    }else if(e.type==='pointerup'){
+      calcFabToggle();
+    }
+  };
+  fab.addEventListener('pointerup',end);
+  fab.addEventListener('pointercancel',end);
+  // Tap anywhere outside the calculator closes it
+  document.addEventListener('pointerdown',e=>{
+    if(!calcFab.open)return;
+    if(e.target.closest&&(e.target.closest('#calc-panel')||e.target.closest('#calc-fab')))return;
+    calcFabToggle(false);
+  },true);
+  calcFab.built=true;
+}
+function calcFabToggle(force){
+  const panel=document.getElementById('calc-panel');if(!panel)return;
+  const open=typeof force==='boolean'?force:!calcFab.open;
+  calcFab.open=open;
+  if(!open){panel.style.display='none';return;}
+  panel.style.display='block';
+  const m=calcFabMetrics();
+  const w=Math.min(300,m.W-2*CALC_M);
+  panel.style.width=w+'px';
+  const h=panel.offsetHeight;
+  const x=calcFab.side==='left'?CALC_M:m.W-CALC_M-w;
+  const belowRoom=m.H-(calcFab.y+CALC_FAB+10);
+  const preferAbove=(calcFab.y+CALC_FAB/2)>m.H/2||belowRoom<h+8;
+  let y=preferAbove?calcFab.y-10-h:calcFab.y+CALC_FAB+10;
+  y=Math.max(m.minY,Math.min(m.H-8-h,y));
+  panel.style.left=x+'px';panel.style.top=y+'px';
+}
+// Show only on the mobile layout, only while signed in. Called after every render and on resize.
+function calcFabSync(){
+  const root=document.getElementById('calc-fab-root');if(!root)return;
+  const app=document.getElementById('app');
+  const show=!isDesktop()&&app&&app.style.display!=='none'&&!!currentUser;
+  if(show){
+    calcFabBuild();
+    const was=root.style.display==='block';
+    root.style.display='block';
+    if(!was)calcFabPlace();
+  }else{
+    root.style.display='none';
+    calcFab.open=false;
+    const panel=document.getElementById('calc-panel');if(panel)panel.style.display='none';
+  }
+}
+window.addEventListener('resize',()=>{calcFabSync();const root=document.getElementById('calc-fab-root');if(root&&root.style.display==='block'){calcFabPlace();if(calcFab.open)calcFabToggle(true);}});
 // Single global listener that only fires when calc is focused
 document.removeEventListener('keydown',calcKeyHandler);
 document.addEventListener('keydown',calcKeyHandler);
@@ -1230,7 +1392,23 @@ function bHomeDesktop(){
     const cl=BC[w.bank]||BC.Other;
     const lentOut=DB.borrowings.filter(b=>b.dir==='lent'&&b.walletId===w.id).reduce((s,b)=>s+(b.total-b.paid),0);
     const initial=w.name.trim()[0]?.toUpperCase()||'W';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid #F5F5F5;cursor:pointer" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
+    // Tap a wallet → its recent transactions open right below it (same as the mobile wallet cards)
+    const isO=hwDet===w.id;
+    const wt=DB.transactions.filter(t=>t.walletId===w.id).slice(0,5);
+    const txMini=isO?`<div style="background:#FAFAFB;padding:2px 14px 8px 60px;border-bottom:.5px solid #F0F0F0">
+      ${wt.length?wt.map(t=>{
+        const isExp=t.type==='expense';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #F2F2F4">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+            <div style="font-size:10px;color:#B5B5BD;margin-top:1px">${esc(t.date)}</div>
+          </div>
+          <div style="font-size:12px;font-weight:700;flex-shrink:0;color:${isExp?'#E05C7A':'#4CAF82'}">${isExp?'−':'+'}${f$(t.amount)}</div>
+        </div>`;}).join(''):`<div style="font-size:11px;color:#9CA3AF;padding:8px 0">No transactions yet</div>`}
+      <div onclick="goTo('ledger')" style="font-size:11px;color:#6B7280;font-weight:600;cursor:pointer;padding-top:7px">See all in Ledger →</div>
+    </div>`:'';
+    return `<div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid #F5F5F5;cursor:pointer;${isO?'background:#FAFAFB;':''}" onmouseover="this.style.background='#FAFAFB'" onmouseout="this.style.background='${isO?'#FAFAFB':''}'" onclick="hwDet=hwDet==='${w.id}'?null:'${w.id}';render()">
       <div style="width:36px;height:36px;border-radius:10px;background:${cl[0]};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">${initial}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:#1A1A2E">${esc(w.name)}</div>
@@ -1241,6 +1419,9 @@ function bHomeDesktop(){
         <div style="font-size:13px;font-weight:700;color:#1A1A2E">${balHidden?'••••':f$(w.currentBalance)}</div>
         ${lentOut>0&&!balHidden?`<div style="font-size:10px;color:#9CA3AF">Actual ${f$(w.actualBalance)}</div>`:''}
       </div>
+      <span style="color:#D1D5DB;font-size:10px;flex-shrink:0;width:10px;text-align:center">${isO?'▲':'▼'}</span>
+    </div>
+    ${txMini}
     </div>`;
   }).join('');
 
@@ -1741,6 +1922,7 @@ function bSplitTable(t){
       <input value="${esc(t.name)}" onchange="renameSplitTable('${t.id}',this.value)" style="font-size:14px;font-weight:700;color:var(--text);border:none;background:transparent;flex:1;min-width:0;outline:none;padding:0">
       ${splitCollapsed[t.id]?`<span onclick="toggleSplitCollapse('${t.id}')" style="font-size:11px;color:var(--sub);white-space:nowrap;cursor:pointer;flex-shrink:0">${t.rows.length} item${t.rows.length===1?'':'s'} · ${f$(totalAmt)}</span>`:''}
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button onclick="openSplitImage('${t.id}')" title="Share as image" style="background:#f0f0f0;color:#555;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
         <button onclick="pendingConfirm={type:'splitTable',id:'${t.id}'};AM='deleteConfirm';render()" style="background:#FCEBEB;color:#C0192C;border:none;border-radius:50%;font-size:14px;width:24px;height:24px;cursor:pointer;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
       </div>
     </div>
@@ -1865,6 +2047,234 @@ function bSplitTable(t){
 }
 
 
+
+// ---- Split group → one long image (everything in the group, no scrolling, easy to send) ----
+// Drawn straight onto a canvas with the same maths as the on-screen table, so it never depends on scroll
+// position or screen width, and it needs no extra library.
+let splitImg=null; // {url,blob,name,title}
+function splitGroupCanvas(t){
+  const FONT="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+  const F=(w,s)=>`${w} ${s}px ${FONT}`;
+  const persons=t.persons.map(p=>p.name);
+  const lessRows=t.lessRows||[];
+  const totalAmt=t.rows.reduce((s,r)=>s+r.total,0);
+  const share={},paid={},remain={};
+  persons.forEach(n=>{share[n]=0;paid[n]=0;});
+  t.rows.forEach(r=>{const sh=splitRowShares(t,r).amt;persons.forEach(n=>{if(sh[n]!==undefined)share[n]+=sh[n];});});
+  lessRows.forEach(lr=>persons.forEach(n=>{paid[n]+=(lr.amounts&&lr.amounts[n])||0;}));
+  persons.forEach(n=>{remain[n]=share[n]-paid[n];});
+  const hasNotes=t.rows.some(r=>r.note)||lessRows.some(r=>r.note);
+
+  const mc=document.createElement('canvas').getContext('2d');
+  const tw=(txt,font)=>{mc.font=font;return mc.measureText(String(txt)).width;};
+  const wrap=(text,font,maxW)=>{
+    mc.font=font;
+    const out=[];
+    String(text==null?'':text).split(/\n/).forEach(par=>{
+      const words=par.split(/\s+/).filter(Boolean);
+      if(!words.length){out.push('');return;}
+      let line='';
+      words.forEach(w0=>{
+        let w=w0;
+        while(mc.measureText(w).width>maxW&&w.length>1){
+          let i=w.length-1;while(i>1&&mc.measureText(w.slice(0,i)).width>maxW)i--;
+          if(line){out.push(line);line='';}
+          out.push(w.slice(0,i));w=w.slice(i);
+        }
+        const test=line?line+' '+w:w;
+        if(mc.measureText(test).width<=maxW)line=test;else{if(line)out.push(line);line=w;}
+      });
+      if(line)out.push(line);
+    });
+    return out.length?out:[''];
+  };
+
+  // ---- columns ----
+  const PAD=22,CP=10;
+  const allRows=[...t.rows,...lessRows];
+  const dateW=Math.max(84,...allRows.map(r=>tw(r.date||'',F(400,12))+2*CP));
+  const itemW=Math.min(250,Math.max(120,...allRows.map(r=>tw(r.item||'',F(600,13))+2*CP)));
+  const totalW=Math.max(78,tw(f$(totalAmt),F(700,13))+2*CP);
+  const personW=persons.map(n=>Math.max(86,tw(n,F(700,12))+2*CP,tw(f$(share[n]),F(700,13))+2*CP,tw('−'+f$(Math.abs(remain[n])),F(700,13))+2*CP));
+  const notesW0=hasNotes?Math.min(230,Math.max(100,...allRows.map(r=>tw(r.note||'',F(400,11.5))+2*CP))):0;
+  let tableW=dateW+itemW+totalW+personW.reduce((a,b)=>a+b,0)+notesW0;
+  const title=t.name||'Split group';
+  const W=Math.max(Math.ceil(tableW+2*PAD),440);
+  const extra=W-2*PAD-tableW;           // give any spare width to the Item column
+  const itemWf=itemW+extra;
+  const colX=[];let cx=PAD;
+  colX.push(cx);cx+=dateW;              // date
+  colX.push(cx);cx+=itemWf;             // item
+  colX.push(cx);cx+=totalW;             // total
+  personW.forEach(w=>{colX.push(cx);cx+=w;});
+  const notesX=cx;
+  const noteW=hasNotes?notesW0:0;
+
+  // ---- heights ----
+  const titleLines=wrap(title,F(700,22),W-2*PAD);
+  const HDR_H=34;
+  const rowInfo=t.rows.map(r=>{
+    const il=wrap(r.item,F(600,13),itemWf-2*CP);
+    const nl=hasNotes?wrap(r.note||'',F(400,11.5),noteW-2*CP):[''];
+    return {r,il,nl,h:Math.max(54,Math.max(il.length,nl.length)*17+22)};
+  });
+  const lessInfo=lessRows.map(r=>{
+    const il=wrap(r.item,F(600,12.5),itemWf-2*CP);
+    const nl=hasNotes?wrap(r.note||'',F(400,11.5),noteW-2*CP):[''];
+    return {r,il,nl,h:Math.max(34,Math.max(il.length,nl.length)*16+16)};
+  });
+  const TOT_H=42,LESS_LBL_H=34,REM_H=44,EMPTY_H=32;
+  let H=PAD+titleLines.length*28+20+16
+    +HDR_H+rowInfo.reduce((s,x)=>s+x.h,0)+(rowInfo.length?0:EMPTY_H)+TOT_H
+    +LESS_LBL_H+(lessInfo.length?lessInfo.reduce((s,x)=>s+x.h,0):EMPTY_H)+REM_H
+    +16+34+PAD;
+
+  // keep inside browser canvas limits (iOS ≈ 16.7M pixels)
+  const scale=Math.max(1,Math.min(3,Math.sqrt(14000000/(W*H))));
+  const cv=document.createElement('canvas');
+  cv.width=Math.round(W*scale);cv.height=Math.round(H*scale);
+  const c=cv.getContext('2d');
+  c.scale(scale,scale);
+  c.textBaseline='middle';
+
+  const INK='#1A1A2E',GREY='#9A9AA5',LINE='#ECECF0',GREEN='#3B6D11',SHARE='#4CAF82',RED='#E05C7A';
+  const text=(s,x,y,font,color,align)=>{c.font=font;c.fillStyle=color;c.textAlign=align||'left';c.fillText(String(s),x,y);};
+  const hline=(y,w,color)=>{c.strokeStyle=color||LINE;c.lineWidth=w||1;c.beginPath();c.moveTo(PAD,y);c.lineTo(W-PAD,y);c.stroke();};
+  const rrect=(x,y,w,h,r,fill,stroke)=>{
+    c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();
+    if(fill){c.fillStyle=fill;c.fill();}
+    if(stroke){c.strokeStyle=stroke;c.lineWidth=1.5;c.stroke();}
+  };
+  const pcx=i=>colX[3+i]+personW[i]/2;
+
+  // background
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+
+  // title
+  let y=PAD;
+  titleLines.forEach((ln,i)=>{text(ln,PAD,y+14+i*28,F(700,22),INK);});
+  y+=titleLines.length*28+4;
+  const nItems=t.rows.length;
+  text(`${nItems} item${nItems===1?'':'s'} · ${f$(totalAmt)} total · ${persons.length} ${persons.length===1?'person':'people'}`,PAD,y+8,F(400,12.5),GREY);
+  y+=16+16;
+
+  // header row
+  c.fillStyle='#F6F6F9';c.fillRect(PAD,y,W-2*PAD,HDR_H);
+  const hy=y+HDR_H/2;
+  text('Date',colX[0]+CP,hy,F(700,11.5),GREY);
+  text('Item',colX[1]+CP,hy,F(700,11.5),GREY);
+  text('Total',colX[2]+totalW-CP,hy,F(700,11.5),GREY,'right');
+  persons.forEach((n,i)=>text(n,pcx(i),hy,F(700,12),GREY,'center'));
+  if(hasNotes)text('Notes',notesX+CP,hy,F(700,11.5),GREY);
+  y+=HDR_H;
+
+  // item rows
+  if(!rowInfo.length){text('No items yet',PAD+CP,y+EMPTY_H/2,F(400,12),GREY);y+=EMPTY_H;}
+  rowInfo.forEach(({r,il,nl,h})=>{
+    hline(y,1);
+    const mid=y+h/2;
+    text(r.date||'',colX[0]+CP,mid,F(400,12),GREY);
+    il.forEach((ln,i)=>text(ln,colX[1]+CP,mid-((il.length-1)*17)/2+i*17,F(600,13),INK));
+    text(f$(r.total),colX[2]+totalW-CP,mid,F(700,13),INK,'right');
+    const rs=splitRowShares(t,r);
+    persons.forEach((n,i)=>{
+      const on=!!(r.enabled&&r.enabled[n]);
+      const x=pcx(i),by=mid-14;
+      if(on){
+        rrect(x-9,by-9,18,18,5,SHARE);
+        c.strokeStyle='#fff';c.lineWidth=2.2;c.lineCap='round';c.lineJoin='round';
+        c.beginPath();c.moveTo(x-4,by);c.lineTo(x-1,by+3.2);c.lineTo(x+4.5,by-3.2);c.stroke();
+        const custom=!!rs.custom[n],lab=f$(rs.amt[n]||0);
+        text(lab,x,mid+12,F(custom?800:600,11),custom?'#27500A':SHARE,'center');
+        if(custom){const lw=tw(lab,F(800,11));c.strokeStyle='#27500A';c.lineWidth=1;c.setLineDash([1.5,2]);c.beginPath();c.moveTo(x-lw/2,mid+18.5);c.lineTo(x+lw/2,mid+18.5);c.stroke();c.setLineDash([]);}
+      }else{
+        rrect(x-8.5,by-8.5,17,17,5,null,'#DDDDE3');
+      }
+    });
+    if(hasNotes)nl.forEach((ln,i)=>text(ln,notesX+CP,mid-((nl.length-1)*17)/2+i*17,F(400,11.5),GREY));
+    y+=h;
+  });
+
+  // total row
+  c.fillStyle='#F6F6F9';c.fillRect(PAD,y,W-2*PAD,TOT_H);
+  hline(y,1.5,'#DADAE0');
+  const ty=y+TOT_H/2;
+  text('Total',colX[0]+CP,ty,F(700,13),INK);
+  text(f$(totalAmt),colX[2]+totalW-CP,ty,F(700,13),INK,'right');
+  persons.forEach((n,i)=>text(f$(share[n]),pcx(i),ty,F(700,13),INK,'center'));
+  y+=TOT_H;
+
+  // LESS section
+  hline(y,1.5,'#DADAE0');
+  text('LESS:',PAD+CP,y+LESS_LBL_H/2,F(700,11.5),GREY);
+  y+=LESS_LBL_H;
+  if(!lessInfo.length){text('No payments yet',colX[0]+CP,y+EMPTY_H/2,F(400,12),'#BBBBC4');y+=EMPTY_H;}
+  lessInfo.forEach(({r,il,nl,h})=>{
+    hline(y,1);
+    const mid=y+h/2;
+    text(r.date||'',colX[0]+CP,mid,F(400,12),GREY);
+    il.forEach((ln,i)=>text(ln,colX[1]+CP,mid-((il.length-1)*16)/2+i*16,F(600,12.5),INK));
+    persons.forEach((n,i)=>{
+      const a=(r.amounts&&r.amounts[n])||0;
+      text(a>0?f$(a):'—',pcx(i),mid,F(600,12),a>0?GREEN:'#C8C8D0','center');
+    });
+    if(hasNotes)nl.forEach((ln,i)=>text(ln,notesX+CP,mid-((nl.length-1)*16)/2+i*16,F(400,11.5),GREY));
+    y+=h;
+  });
+
+  // remaining transfer
+  c.fillStyle='#F6F6F9';c.fillRect(PAD,y,W-2*PAD,REM_H);
+  hline(y,1.5,'#DADAE0');
+  const ry=y+REM_H/2;
+  text('Remaining transfer',colX[0]+CP,ry,F(700,13),INK);
+  persons.forEach((n,i)=>{
+    const rem=remain[n],done=Math.abs(rem)<0.01;
+    text(done?'✓':(rem>0?'+':'−')+f$(Math.abs(rem)),pcx(i),ry,F(700,13.5),done?GREEN:(rem>0?RED:GREEN),'center');
+  });
+  y+=REM_H;
+  hline(y,1,LINE);
+
+  // legend + credit
+  y+=18;
+  text('+ amount = still needs to pay   ·   − amount = is owed back   ·   ✓ = all settled',PAD,y,F(400,11),GREY);
+  y+=18;
+  text(`Made with FinTrack · ${new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})}`,PAD,y,F(400,11),'#BBBBC4');
+  return cv;
+}
+function openSplitImage(tableId){
+  const t=DB.splitTables.find(x=>x.id===tableId);if(!t)return;
+  if(!t.rows.length&&!(t.lessRows||[]).length){showToast('Nothing in this group yet');return;}
+  let cv;
+  try{cv=splitGroupCanvas(t);}catch(e){console.error('[FinTrack] image error',e);alert('Could not create the image: '+e.message);return;}
+  cv.toBlob(blob=>{
+    if(!blob){alert('Could not create the image');return;}
+    if(splitImg&&splitImg.url)URL.revokeObjectURL(splitImg.url);
+    const d=new Date();
+    const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const safe=(t.name||'split').replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'split';
+    splitImg={url:URL.createObjectURL(blob),blob,name:'FinTrack_'+safe+'_'+stamp+'.png',title:t.name,w:cv.width,h:cv.height};
+    oM('splitImage');
+  },'image/png');
+}
+async function shareSplitImage(){
+  if(!splitImg)return;
+  const file=new File([splitImg.blob],splitImg.name,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:splitImg.title});}
+    catch(e){if(!e||e.name!=='AbortError')showToast('Could not open the share sheet');}
+  }else{
+    downloadSplitImage();
+  }
+}
+function downloadSplitImage(){
+  if(!splitImg)return;
+  const a=document.createElement('a');a.href=splitImg.url;a.download=splitImg.name;
+  document.body.appendChild(a);a.click();a.remove();
+}
+function closeSplitImage(){
+  if(splitImg&&splitImg.url){URL.revokeObjectURL(splitImg.url);}
+  splitImg=null;cM();
+}
 
 function bFunds(){
   DB.funds.forEach(fd=>{
@@ -2733,6 +3143,16 @@ function bModal(name){
       <input type="hidden" id="mtmpl" value="">`:''}
       <div class="field"><label>Group name *</label><input id="mgn" type="text" placeholder="e.g. June Salary Day" autocomplete="off"></div>
       <button class="btnp" onclick="svGroup()">Create group</button><button class="btns" onclick="cM()">Cancel</button>`);}
+
+    case 'splitImage':{
+      if(!splitImg)return W('Share Group',`<div style="text-align:center;font-size:12px;color:var(--sub);padding:14px 0">Nothing to show.</div><button class="btns" onclick="cM()">Close</button>`);
+      const canShare=!!(navigator.canShare&&navigator.share);
+      return W('Share '+esc(splitImg.title),`
+      <div style="font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:10px">The whole group in one picture — every item, share, payment and what's left. ${canShare?'Tap Share to send it, or touch and hold the picture to save it.':'Touch and hold the picture to save it, or tap Save image.'}</div>
+      <div style="max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch;border:.5px solid #e8e8e8;border-radius:12px;margin-bottom:12px;background:#fff"><img src="${splitImg.url}" alt="${esc(splitImg.title)}" style="display:block;width:100%;height:auto"></div>
+      ${canShare?`<button class="btnp" onclick="shareSplitImage()">Share</button>`:''}
+      <button class="${canShare?'btns':'btnp'}" onclick="downloadSplitImage()">Save image</button>
+      <button class="btns" onclick="closeSplitImage()">Close</button>`);}
 
     case 'splitRecord':{
       const tgt=splitRecordTarget?(DB.splitTables||[]).find(x=>x.id===splitRecordTarget):null;
@@ -3888,7 +4308,7 @@ function noteKeyDown(e,i){
 // Debug overlay - shows live layout metrics
 function showDebug(){
   try{
-  const VERSION='v3.12-nov10-manual-split';
+  const VERSION='v3.13-nov11-wallets-calc-image';
   let el=document.getElementById('debug-overlay');
   if(!el){el=document.createElement('div');el.id='debug-overlay';
     el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#0f0;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;z-index:99999;line-height:1.6;min-width:280px;text-align:left;max-height:80vh;overflow-y:auto';
